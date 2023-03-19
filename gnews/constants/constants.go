@@ -1,6 +1,7 @@
 package constants
 
 import (
+	"fmt"
 	"math/rand"
 )
 
@@ -194,6 +195,8 @@ var (
 
 	USER_AGENT = USER_AGENTS[rand.Intn(len(USER_AGENTS))]
 
+	DEFAULT_LANGUAGE = "en"
+
 	AVAILABLE_LANGUAGES = map[string]string{
 		"english":             "en",
 		"indonesian":          "id",
@@ -234,7 +237,48 @@ var (
 		"chinese traditional": "zh-Hant",
 		"japanese":            "ja",
 		"korean":              "ko",
+		"en":                  "en",
+		"id":                  "id",
+		"cs":                  "cs",
+		"de":                  "de",
+		"es-419":              "es-419",
+		"fr":                  "fr",
+		"it":                  "it",
+		"lv":                  "lv",
+		"lt":                  "lt",
+		"hu":                  "hu",
+		"nl":                  "nl",
+		"no":                  "no",
+		"pl":                  "pl",
+		"pt-419":              "pt-419",
+		"pt-150":              "pt-150",
+		"ro":                  "ro",
+		"sk":                  "sk",
+		"sl":                  "sl",
+		"sv":                  "sv",
+		"vi":                  "vi",
+		"tr":                  "tr",
+		"el":                  "el",
+		"bg":                  "bg",
+		"ru":                  "ru",
+		"sr":                  "sr",
+		"uk":                  "uk",
+		"he":                  "he",
+		"ar":                  "ar",
+		"mr":                  "mr",
+		"hi":                  "hi",
+		"bn":                  "bn",
+		"ta":                  "ta",
+		"te":                  "te",
+		"ml":                  "ml",
+		"th":                  "th",
+		"zh-Hans":             "zh-Hans",
+		"zh-Hant":             "zh-Hant",
+		"ja":                  "ja",
+		"ko":                  "ko",
 	}
+
+	DEFAULT_COUNTRY = "US"
 
 	AVAILABLE_COUNTRIES = map[string]string{
 		"Australia":            "AU",
@@ -306,11 +350,97 @@ var (
 		"Hong Kong":            "HK",
 		"Japan":                "JP",
 		"Republic of Korea":    "KR",
+		"AU":                   "AU",
+		"BW":                   "BW",
+		"CA":                   "CA",
+		"ET":                   "ET",
+		"GH":                   "GH",
+		"IN":                   "IN",
+		"ID":                   "ID",
+		"IE":                   "IE",
+		"IL":                   "IL",
+		"KE":                   "KE",
+		"LV":                   "LV",
+		"MY":                   "MY",
+		"NA":                   "NA",
+		"NZ":                   "NZ",
+		"NG":                   "NG",
+		"PK":                   "PK",
+		"PH":                   "PH",
+		"SG":                   "SG",
+		"ZA":                   "ZA",
+		"TZ":                   "TZ",
+		"UG":                   "UG",
+		"GB":                   "GB",
+		"US":                   "US",
+		"ZW":                   "ZW",
+		"CZ":                   "CZ",
+		"DE":                   "DE",
+		"AT":                   "AT",
+		"CH":                   "CH",
+		"AR":                   "AR",
+		"CL":                   "CL",
+		"CO":                   "CO",
+		"CU":                   "CU",
+		"MX":                   "MX",
+		"PE":                   "PE",
+		"VE":                   "VE",
+		"BE":                   "BE",
+		"FR":                   "FR",
+		"MA":                   "MA",
+		"SN":                   "SN",
+		"IT":                   "IT",
+		"LT":                   "LT",
+		"HU":                   "HU",
+		"NL":                   "NL",
+		"NO":                   "NO",
+		"PL":                   "PL",
+		"BR":                   "BR",
+		"PT":                   "PT",
+		"RO":                   "RO",
+		"SK":                   "SK",
+		"SI":                   "SI",
+		"SE":                   "SE",
+		"VN":                   "VN",
+		"TR":                   "TR",
+		"GR":                   "GR",
+		"BG":                   "BG",
+		"RU":                   "RU",
+		"UA":                   "UA",
+		"RS":                   "RS",
+		"AE":                   "AE",
+		"SA":                   "SA",
+		"LB":                   "LB",
+		"EG":                   "EG",
+		"BD":                   "BD",
+		"TH":                   "TH",
+		"CN":                   "CN",
+		"TW":                   "TW",
+		"HK":                   "HK",
+		"JP":                   "JP",
+		"KR":                   "KR",
 	}
 
 	GOOGLE_NEWS_REGEX = `^http(s)?://(www.)?news.google.com*`
 
-	TOPICS = []string{"WORLD", "NATION", "BUSINESS", "TECHNOLOGY", "ENTERTAINMENT", "SPORTS", "SCIENCE", "HEALTH"}
+	TOPICS = map[string]bool{
+		"WORLD":         true,
+		"NATION":        true,
+		"BUSINESS":      true,
+		"TECHNOLOGY":    true,
+		"ENTERTAINMENT": true,
+		"SPORTS":        true,
+		"SCIENCE":       true,
+		"HEALTH":        true,
+	}
+
+	ErrEmptyQuery = fmt.Errorf("query cannot be empty")
+
+	ErrEmptyTopic = fmt.Errorf("topic cannot be empty")
+
+	ErrInvalidTopic = fmt.Errorf("invalid topic")
+
+	ErrEmptyLocation = fmt.Errorf("location cannot be empty")
 )
 
 const (
