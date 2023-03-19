@@ -2,6 +2,7 @@ package gnews
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -85,13 +86,13 @@ func (g *GNews) ceid() string {
 	timeQuery := ""
 	if g.startDate != nil || g.endDate != nil {
 		if g.period != nil {
-			timeQuery += "when%3A" + g.period.String()
+			timeQuery += "%20when%3A" + g.period.String()
 		}
 		if g.endDate != nil {
-			timeQuery += " before%3A" + g.endDate.String()
+			timeQuery += "%20before%3A" + g.endDate.Format("2006-01-02")
 		}
 		if g.startDate != nil {
-			timeQuery += " after%3A" + g.startDate.String()
+			timeQuery += "%20after%3A" + g.startDate.Format("2006-01-02")
 		}
 	} else if g.period != nil {
 		timeQuery += "%20when%3A" + g.period.String()
@@ -200,6 +201,11 @@ func (g *GNews) getNews(query string) ([]map[string]interface{}, error) {
 			return nil, fmt.Errorf("error making request: %w", err)
 		}
 		defer resp.Body.Close()
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(string(bodyBytes))
 		fp := gofeed.NewParser()
 		feed, err := fp.Parse(resp.Body)
 		if err != nil {
