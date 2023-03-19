@@ -2,7 +2,6 @@ package constants
 
 import (
 	"math/rand"
-	"regexp"
 )
 
 var (
@@ -309,7 +308,7 @@ var (
 		"Republic of Korea":    "KR",
 	}
 
-	GOOGLE_NEWS_REGEX = regexp.MustCompile(`^http(s)?://(www.)?news.google.com*`)
+	GOOGLE_NEWS_REGEX = `^http(s)?://(www.)?news.google.com*`
 
 	TOPICS = []string{"WORLD", "NATION", "BUSINESS", "TECHNOLOGY", "ENTERTAINMENT", "SPORTS", "SCIENCE", "HEALTH"}
 )
