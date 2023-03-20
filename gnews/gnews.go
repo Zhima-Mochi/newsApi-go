@@ -1,6 +1,7 @@
 package gnews
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -8,8 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/Zhima-Mochi/GNews-go/gnews/constants"
 	"github.com/Zhima-Mochi/GNews-go/gnews/utils"
+	"github.com/jaytaylor/html2text"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -29,19 +32,19 @@ type GNews struct {
 // Language is the language of the news (e.g. en, fr, de, etc.)
 // Country is the country of the news (e.g. US, FR, DE, etc.)
 // MaxResults is the maximum number of results to return
-func NewGNews(Language, Country string, MaxResults int) *GNews {
+func NewGNews(language string, country string, maxResults int) *GNews {
 	gnews := &GNews{
-		Language:   Language,
-		Country:    Country,
-		MaxResults: MaxResults,
+		Language:   language,
+		Country:    country,
+		MaxResults: maxResults,
 	}
-	if language, ok := constants.AVAILABLE_LANGUAGES[Language]; ok {
-		gnews.Language = language
+	if lang, ok := constants.AVAILABLE_LANGUAGES[language]; ok {
+		gnews.Language = lang
 	} else {
 		gnews.Language = constants.DEFAULT_LANGUAGE
 	}
-	if country, ok := constants.AVAILABLE_COUNTRIES[Country]; ok {
-		gnews.Country = country
+	if ctry, ok := constants.AVAILABLE_COUNTRIES[country]; ok {
+		gnews.Country = ctry
 	} else {
 		gnews.Country = constants.DEFAULT_COUNTRY
 	}
@@ -110,14 +113,41 @@ type Article struct {
 	Source      string
 }
 
-func (g *GNews) GetFullArticle(url string) (*Article, error) {
-	// TODO
-	return nil, nil
+func GetFullArticle(url string) (*Article, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, errors.New("failed to download article")
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, errors.New("failed to parse HTML")
+	}
+	text, err := html2text.FromReader(strings.NewReader(doc.Text()), html2text.Options{})
+	if err != nil {
+		return nil, errors.New("failed to convert HTML to text")
+	}
+	fmt.Println(text)
+	article := &Article{
+		Title:       doc.Find("h1").Text(),
+		Description: doc.Find("meta[name=description]").AttrOr("content", ""),
+		Content:     text,
+		URL:         url,
+		ImageURL:    doc.Find("meta[property='og:image']").AttrOr("content", ""),
+		PublishedAt: time.Now(),
+		Source:      doc.Find("meta[property='og:site_name']").AttrOr("content", ""),
+	}
+
+	return article, nil
 }
 
 func CleanHTML(html string) string {
-	// TODO
-	return ""
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return ""
+	}
+	return doc.Text()
 }
 
 func (g *GNews) process(item *gofeed.Item) (*gofeed.Item, error) {
@@ -128,6 +158,7 @@ func (g *GNews) process(item *gofeed.Item) (*gofeed.Item, error) {
 
 	item.Link = url
 	item.Description = CleanHTML(item.Description)
+	item.Content = CleanHTML(item.Content)
 
 	return item, nil
 }
@@ -159,6 +190,9 @@ func (g *GNews) GetItems(client *http.Client, req *http.Request) ([]*gofeed.Item
 	}
 	items := make([]*gofeed.Item, 0, len(feed.Items))
 	for _, feedItem := range feed.Items {
+		if len(items) >= g.MaxResults {
+			break
+		}
 		item, err := g.process(feedItem)
 		if err != nil {
 			return nil, err
