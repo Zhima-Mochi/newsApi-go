@@ -13,10 +13,17 @@ func main() {
 
 	google_news.SetStartDate(time.Date(2023, 3, 19, 0, 0, 0, 0, time.UTC))
 	google_news.SetEndDate(time.Date(2023, 3, 20, 0, 0, 0, 0, time.UTC))
-	result, err := google_news.GetNews("WORLD")
+	results, err := google_news.GetNews("WORLD")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(result)
+	for _, result := range results {
+		fmt.Println(result.Title)
+		fmt.Println(result.Description)
+		fmt.Println(result.Link)
+		fmt.Println(result.Published)
+		fmt.Println(result.Image)
+		fmt.Println()
+	}
 }

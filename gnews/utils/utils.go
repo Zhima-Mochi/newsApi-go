@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Zhima-Mochi/GNews-go/gnews/constants"
+	"github.com/mmcdole/gofeed"
 )
 
 func LangMapping(lang string) string {
@@ -19,31 +20,25 @@ func CountryMapping(country string) string {
 	return constants.AVAILABLE_COUNTRIES[strings.ToLower(country)]
 }
 
-func ProcessURL(item map[string]interface{}, excludeWebsites []string) (string, error) {
-	source, ok := item["source"].(map[string]interface{})
-	if !ok {
-		return "", errors.New("invalid source")
-	}
+func ProcessURL(item *gofeed.Item, excludeWebsites *[]string) (string, error) {
 
-	sourceHref, ok := source["href"].(string)
-	if !ok {
-		return "", errors.New("invalid source href")
-	}
-
-	for _, website := range excludeWebsites {
-		r, _ := regexp.Compile(fmt.Sprintf(`^http(s)?://(www.)?%s.*`, strings.ToLower(website)))
-		if r.MatchString(sourceHref) {
-			return "", nil
+	if excludeWebsites != nil {
+		for _, website := range *excludeWebsites {
+			r, _ := regexp.Compile(fmt.Sprintf(`^http(s)?://(www.)?%s.*`, strings.ToLower(website)))
+			if r.MatchString(item.Link) {
+				return "", nil
+			}
 		}
 	}
 
-	link, ok := item["link"].(string)
-	if !ok {
-		return "", errors.New("invalid link")
+	// Check if the item.Link is a Google News link
+	link, err := url.Parse(item.Link)
+	if err != nil {
+		return "", errors.New("error parsing URL: " + err.Error())
 	}
-
-	if matched, _ := regexp.MatchString(constants.GOOGLE_NEWS_REGEX, link); matched {
-		resp, err := http.Head(link)
+	// If the item.Link is a Google News link, get the real link
+	if matched, _ := regexp.MatchString(constants.GOOGLE_NEWS_REGEX, link.Host); matched {
+		resp, err := http.Head(link.Host)
 		if err != nil {
 			return "", errors.New("error getting URL: " + err.Error())
 		}
@@ -51,8 +46,8 @@ func ProcessURL(item map[string]interface{}, excludeWebsites []string) (string, 
 		if err != nil {
 			return "", errors.New("error parsing URL: " + err.Error())
 		}
-		link = redirectedURL.String()
+		link = redirectedURL
 	}
 
-	return link, nil
+	return link.String(), nil
 }

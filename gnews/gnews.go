@@ -120,26 +120,20 @@ func CleanHTML(html string) string {
 	return ""
 }
 
-func (g *GNews) process(item map[string]interface{}) (map[string]interface{}, error) {
-	url, err := utils.ProcessURL(item, *g.excludeWebsites)
+func (g *GNews) process(item *gofeed.Item) (*gofeed.Item, error) {
+	url, err := utils.ProcessURL(item, g.excludeWebsites)
 	if err != nil {
 		return nil, err
 	}
 
-	title := item["title"].(string)
+	item.Link = url
+	item.Description = CleanHTML(item.Description)
 
-	item = map[string]interface{}{
-		"title":          title,
-		"description":    CleanHTML(item["description"].(string)),
-		"published date": item["published"],
-		"url":            url,
-		"publisher":      item["source"],
-	}
 	return item, nil
 }
 
 // GetNews gets the news
-func (g *GNews) GetNews(key string) ([]map[string]interface{}, error) {
+func (g *GNews) GetNews(key string) ([]*gofeed.Item, error) {
 	if key == "" {
 		return nil, constants.ErrEmptyQuery
 	}
@@ -149,46 +143,51 @@ func (g *GNews) GetNews(key string) ([]map[string]interface{}, error) {
 	return g.getNews(query)
 }
 
-func (g *GNews) getNews(query string) ([]map[string]interface{}, error) {
+func CustomRequest(client *http.Client, req *http.Request) ([]byte, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error getting response: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+	return body, nil
+}
+
+func (g *GNews) getNews(query string) ([]*gofeed.Item, error) {
 	link := constants.BASE_URL + query + g.ceid()
 	req, err := http.NewRequest(http.MethodGet, link, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 	req.Header.Set("User-Agent", constants.USER_AGENT)
-
 	if g.proxy != nil {
 		proxyUrl, err := url.Parse(*g.proxy)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing proxy url: %w", err)
 		}
+		transport := &http.Transport{
+			Proxy: http.ProxyURL(proxyUrl),
+		}
 		client := &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyURL(proxyUrl),
-			},
+			Transport: transport,
 		}
-		resp, err := client.Do(req)
+		body, err := CustomRequest(client, req)
 		if err != nil {
-			return nil, fmt.Errorf("error making request: %w", err)
+			return nil, err
 		}
-		defer resp.Body.Close()
-		fp := gofeed.NewParser()
-		feed, err := fp.Parse(resp.Body)
+		feed, err := gofeed.NewParser().ParseString(string(body))
 		if err != nil {
-			return nil, fmt.Errorf("error parsing feed: %w", err)
+			return nil, fmt.Errorf("error parsing response body: %w", err)
 		}
-		items := make([]map[string]interface{}, 0, len(feed.Items))
+		items := make([]*gofeed.Item, 0, len(feed.Items))
 		for i, feedItem := range feed.Items {
 			if i >= g.MaxResults {
 				break
 			}
-			feedItemMap := map[string]interface{}{
-				"title":       feedItem.Title,
-				"description": feedItem.Description,
-				"published":   feedItem.Published,
-				"source":      feedItem.Extensions["source"]["title"][0].Value,
-			}
-			item, err := g.process(feedItemMap)
+			item, err := g.process(feedItem)
 			if err != nil {
 				return nil, err
 			}
@@ -196,30 +195,18 @@ func (g *GNews) getNews(query string) ([]map[string]interface{}, error) {
 		}
 		return items, nil
 	} else {
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("error making request: %w", err)
-		}
-		defer resp.Body.Close()
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		fp := gofeed.NewParser()
+		body, err := CustomRequest(http.DefaultClient, req)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(string(bodyBytes))
-		fp := gofeed.NewParser()
-		feed, err := fp.Parse(resp.Body)
+		feed, err := fp.ParseString(string(body))
 		if err != nil {
-			return nil, fmt.Errorf("error parsing feed: %w", err)
+			return nil, fmt.Errorf("error parsing response body: %w", err)
 		}
-		items := make([]map[string]interface{}, 0, len(feed.Items))
+		items := make([]*gofeed.Item, 0, len(feed.Items))
 		for _, feedItem := range feed.Items {
-			feedItemMap := map[string]interface{}{
-				"title":       feedItem.Title,
-				"description": feedItem.Description,
-				"published":   feedItem.Published,
-				"source":      feedItem.Extensions["source"]["title"][0].Value,
-			}
-			item, err := g.process(feedItemMap)
+			item, err := g.process(feedItem)
 			if err != nil {
 				return nil, err
 			}
@@ -230,13 +217,13 @@ func (g *GNews) getNews(query string) ([]map[string]interface{}, error) {
 }
 
 // GetTopNews gets the top news
-func (g *GNews) GetTopNews() ([]map[string]interface{}, error) {
+func (g *GNews) GetTopNews() ([]*gofeed.Item, error) {
 	query := "?"
 	return g.getNews(query)
 }
 
 // GetNewsByTopic gets the news by topic
-func (g *GNews) GetNewsByTopic(topic string) ([]map[string]interface{}, error) {
+func (g *GNews) GetNewsByTopic(topic string) ([]*gofeed.Item, error) {
 	if topic == "" {
 		return nil, constants.ErrEmptyTopic
 	}
@@ -250,7 +237,7 @@ func (g *GNews) GetNewsByTopic(topic string) ([]map[string]interface{}, error) {
 }
 
 // GetNewsByLocation gets the news by location
-func (g *GNews) GetNewsByLocation(location string) ([]map[string]interface{}, error) {
+func (g *GNews) GetNewsByLocation(location string) ([]*gofeed.Item, error) {
 	if location == "" {
 		return nil, constants.ErrEmptyLocation
 	}
