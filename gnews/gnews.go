@@ -137,13 +137,12 @@ func (g *GNews) GetNews(key string) ([]*gofeed.Item, error) {
 	if key == "" {
 		return nil, constants.ErrEmptyQuery
 	}
-	// key = ReplaceAll(key, " ", "%20")
 	key = strings.ReplaceAll(key, " ", "%20")
 	query := "/search?q=" + key
 	return g.getNews(query)
 }
 
-func CustomRequest(client *http.Client, req *http.Request) ([]byte, error) {
+func (g *GNews) GetItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error getting response: %w", err)
@@ -153,7 +152,20 @@ func CustomRequest(client *http.Client, req *http.Request) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
-	return body, nil
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseString(string(body))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing response body: %w", err)
+	}
+	items := make([]*gofeed.Item, 0, len(feed.Items))
+	for _, feedItem := range feed.Items {
+		item, err := g.process(feedItem)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 func (g *GNews) getNews(query string) ([]*gofeed.Item, error) {
@@ -174,43 +186,15 @@ func (g *GNews) getNews(query string) ([]*gofeed.Item, error) {
 		client := &http.Client{
 			Transport: transport,
 		}
-		body, err := CustomRequest(client, req)
+		items, err := g.GetItems(client, req)
 		if err != nil {
 			return nil, err
-		}
-		feed, err := gofeed.NewParser().ParseString(string(body))
-		if err != nil {
-			return nil, fmt.Errorf("error parsing response body: %w", err)
-		}
-		items := make([]*gofeed.Item, 0, len(feed.Items))
-		for i, feedItem := range feed.Items {
-			if i >= g.MaxResults {
-				break
-			}
-			item, err := g.process(feedItem)
-			if err != nil {
-				return nil, err
-			}
-			items = append(items, item)
 		}
 		return items, nil
 	} else {
-		fp := gofeed.NewParser()
-		body, err := CustomRequest(http.DefaultClient, req)
+		items, err := g.GetItems(http.DefaultClient, req)
 		if err != nil {
 			return nil, err
-		}
-		feed, err := fp.ParseString(string(body))
-		if err != nil {
-			return nil, fmt.Errorf("error parsing response body: %w", err)
-		}
-		items := make([]*gofeed.Item, 0, len(feed.Items))
-		for _, feedItem := range feed.Items {
-			item, err := g.process(feedItem)
-			if err != nil {
-				return nil, err
-			}
-			items = append(items, item)
 		}
 		return items, nil
 	}
