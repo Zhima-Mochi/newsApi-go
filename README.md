@@ -1,4 +1,10 @@
 # GNews-go
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/Zhima-Mochi/gnews-go)](https://goreportcard.com/report/github.com/Zhima-Mochi/gnews-go)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
+# Introduction
 This repository contains a Go implementation of the [ranahaani/GNews](https://github.com/ranahaani/GNews) code.
 
 ## Available Countries
