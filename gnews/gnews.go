@@ -1,7 +1,6 @@
 package gnews
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,66 +9,83 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/Zhima-Mochi/GNews-go/gnews/constants"
 	"github.com/Zhima-Mochi/GNews-go/gnews/utils"
-	"github.com/jaytaylor/html2text"
 	"github.com/mmcdole/gofeed"
 )
 
 // GNews is the main struct
 type GNews struct {
-	Language        string
-	Country         string
-	MaxResults      int
+	baseURL         url.URL
+	language        string
+	country         string
 	period          *time.Duration
 	startDate       *time.Time
 	endDate         *time.Time
 	excludeWebsites *[]string
 	proxy           *string
+	limit           int
 }
 
 // NewGNews creates a new GNews instance
+// Language and country are optional
+// If you don't specify them, the default language and country will be used
+// The default language is traditional Chinese
+// The default country is TW
 // Language is the language of the news (e.g. en, fr, de, etc.)
 // Country is the country of the news (e.g. US, FR, DE, etc.)
-// MaxResults is the maximum number of results to return
-func NewGNews(language string, country string, maxResults int) *GNews {
+func NewGNews(language string, country string) *GNews {
+	baseURL := url.URL{
+		Scheme: "https",
+		Host:   "news.google.com",
+		Path:   "/",
+	}
+	if lang, ok := utils.AVAILABLE_LANGUAGES[language]; ok {
+		language = lang
+	} else {
+		language = utils.DEFAULT_LANGUAGE
+	}
+	if ctry, ok := utils.AVAILABLE_COUNTRIES[country]; ok {
+		country = ctry
+	} else {
+		country = utils.DEFAULT_COUNTRY
+	}
 	gnews := &GNews{
-		Language:   language,
-		Country:    country,
-		MaxResults: maxResults,
-	}
-	if lang, ok := constants.AVAILABLE_LANGUAGES[language]; ok {
-		gnews.Language = lang
-	} else {
-		gnews.Language = constants.DEFAULT_LANGUAGE
-	}
-	if ctry, ok := constants.AVAILABLE_COUNTRIES[country]; ok {
-		gnews.Country = ctry
-	} else {
-		gnews.Country = constants.DEFAULT_COUNTRY
+		baseURL:  baseURL,
+		language: language,
+		country:  country,
+		limit:    utils.MaxSearchResults,
 	}
 	return gnews
+}
+
+// SetLimit sets the limit of the results
+func (g *GNews) SetLimit(limit int) *GNews {
+	if limit > utils.MaxSearchResults {
+		limit = utils.MaxSearchResults
+	}
+	g.limit = limit
+	return g
 }
 
 // SetPeriod sets the period of the news
 // Available periods are: 1h, 1d, 7d, 30d, 1y
 // If you want to set a custom period, use SetStartDate and SetEndDate
-func (g *GNews) SetPeriod(period time.Duration) *GNews {
-	g.period = &period
+func (g *GNews) SetPeriod(period *time.Duration) *GNews {
+	g.period = period
 	return g
 }
 
 // SetStartDate sets the start date of the news
 // If you want to set a custom period, use SetPeriod
-func (g *GNews) SetStartDate(startDate time.Time) *GNews {
-	g.startDate = &startDate
+func (g *GNews) SetStartDate(startDate *time.Time) *GNews {
+	g.startDate = startDate
 	return g
 }
 
 // SetEndDate sets the end date of the news
 // If you want to set a custom period, use SetPeriod
-func (g *GNews) SetEndDate(endDate time.Time) *GNews {
-	g.endDate = &endDate
+func (g *GNews) SetEndDate(endDate *time.Time) *GNews {
+	g.endDate = endDate
 	return g
 }
 
@@ -85,62 +101,68 @@ func (g *GNews) SetProxy(proxy string) *GNews {
 	return g
 }
 
-func (g *GNews) ceid() string {
-	timeQuery := ""
-	if g.startDate != nil || g.endDate != nil {
+func (g *GNews) composeURL(search string) url.URL {
+	searchURL := g.baseURL
+	query := url.Values{}
+	query.Add("hl", g.language)
+	query.Add("gl", g.country)
+	query.Add("ceid", g.country+":"+g.language)
+	if search == "" {
+		searchURL.Path = "rss"
+	} else {
+		searchURL.Path = "rss/search"
+		query.Set("q", search)
 		if g.period != nil {
-			timeQuery += "%20when%3A" + g.period.String()
+			query.Set("q", query.Get("q")+"+when:"+g.period.String())
 		}
 		if g.endDate != nil {
-			timeQuery += "%20before%3A" + g.endDate.Format("2006-01-02")
+			query.Set("q", query.Get("q")+"+before:"+g.endDate.Format("2006-01-02"))
 		}
 		if g.startDate != nil {
-			timeQuery += "%20after%3A" + g.startDate.Format("2006-01-02")
+			query.Set("q", query.Get("q")+"+after:"+g.startDate.Format("2006-01-02"))
 		}
-	} else if g.period != nil {
-		timeQuery += "%20when%3A" + g.period.String()
 	}
-	return timeQuery + "&hl=" + g.Language + "&gl=" + g.Country + "&ceid=" + g.Country + "%3A" + g.Language
+	searchURL.RawQuery = query.Encode()
+	return searchURL
 }
 
-type Article struct {
-	Title       string
-	Description string
-	Content     string
-	URL         string
-	ImageURL    string
-	PublishedAt time.Time
-	Source      string
-}
+// type Article struct {
+// 	Title       string
+// 	Description string
+// 	Content     string
+// 	URL         string
+// 	ImageURL    string
+// 	PublishedAt time.Time
+// 	Source      string
+// }
 
-func GetFullArticle(url string) (*Article, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, errors.New("failed to download article")
-	}
-	defer resp.Body.Close()
+// func GetFullArticle(url string) (*Article, error) {
+// 	resp, err := http.Get(url)
+// 	if err != nil {
+// 		return nil, errors.New("failed to download article")
+// 	}
+// 	defer resp.Body.Close()
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, errors.New("failed to parse HTML")
-	}
-	text, err := html2text.FromReader(strings.NewReader(doc.Text()), html2text.Options{})
-	if err != nil {
-		return nil, errors.New("failed to convert HTML to text")
-	}
-	fmt.Println(text)
-	article := &Article{
-		Title:       doc.Find("h1").Text(),
-		Description: doc.Find("meta[name=description]").AttrOr("content", ""),
-		Content:     text,
-		URL:         url,
-		ImageURL:    doc.Find("meta[property='og:image']").AttrOr("content", ""),
-		PublishedAt: time.Now(),
-		Source:      doc.Find("meta[property='og:site_name']").AttrOr("content", ""),
-	}
+// 	doc, err := goquery.NewDocumentFromReader(resp.Body)
+// 	if err != nil {
+// 		return nil, errors.New("failed to parse HTML")
+// 	}
+// 	text, err := html2text.FromReader(strings.NewReader(doc.Text()), html2text.Options{})
+// 	if err != nil {
+// 		return nil, errors.New("failed to convert HTML to text")
+// 	}
+// 	article := &Article{
+// 		Title:       doc.Find("h1").Text(),
+// 		Description: doc.Find("meta[name=description]").AttrOr("content", ""),
+// 		Content:     text,
+// 		URL:         url,
+// 		ImageURL:    doc.Find("meta[property='og:image']").AttrOr("content", ""),
+// 		PublishedAt: time.Now(),
+// 		Source:      doc.Find("meta[property='og:site_name']").AttrOr("content", ""),
+// 	}
 
-	return article, nil
-}
+// 	return article, nil
+// }
 
 func CleanHTML(html string) string {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
@@ -155,22 +177,25 @@ func (g *GNews) process(item *gofeed.Item) (*gofeed.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println(item.Description)
 	item.Link = url
 	item.Description = CleanHTML(item.Description)
 	item.Content = CleanHTML(item.Content)
-
 	return item, nil
 }
 
-// GetNews gets the news
-func (g *GNews) GetNews(key string) ([]*gofeed.Item, error) {
-	if key == "" {
-		return nil, constants.ErrEmptyQuery
+// GetNewsWithSearch gets the news with a search query
+func (g *GNews) GetNewsWithSearch(search string) ([]*gofeed.Item, error) {
+	if search == "" {
+		return nil, utils.ErrEmptyQuery
 	}
-	key = strings.ReplaceAll(key, " ", "%20")
-	query := "/search?q=" + key
-	return g.getNews(query)
+	search = strings.ReplaceAll(search, " ", "%20")
+	return g.getNews(search)
+}
+
+// GetNews gets the news
+func (g *GNews) GetNews() ([]*gofeed.Item, error) {
+	return g.getNews("")
 }
 
 func (g *GNews) GetItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
@@ -189,26 +214,27 @@ func (g *GNews) GetItems(client *http.Client, req *http.Request) ([]*gofeed.Item
 		return nil, fmt.Errorf("error parsing response body: %w", err)
 	}
 	items := make([]*gofeed.Item, 0, len(feed.Items))
-	for _, feedItem := range feed.Items {
-		if len(items) >= g.MaxResults {
+	for i, feedItem := range feed.Items {
+		if i >= g.limit {
 			break
 		}
 		item, err := g.process(feedItem)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, item)
 	}
 	return items, nil
 }
 
-func (g *GNews) getNews(query string) ([]*gofeed.Item, error) {
-	link := constants.BASE_URL + query + g.ceid()
-	req, err := http.NewRequest(http.MethodGet, link, nil)
+func (g *GNews) getNews(search string) ([]*gofeed.Item, error) {
+	searchURL := g.composeURL(search)
+	req, err := http.NewRequest(http.MethodGet, searchURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
-	req.Header.Set("User-Agent", constants.USER_AGENT)
+	req.Header.Set("User-Agent", utils.USER_AGENT)
 	if g.proxy != nil {
 		proxyUrl, err := url.Parse(*g.proxy)
 		if err != nil {
@@ -243,21 +269,21 @@ func (g *GNews) GetTopNews() ([]*gofeed.Item, error) {
 // GetNewsByTopic gets the news by topic
 func (g *GNews) GetNewsByTopic(topic string) ([]*gofeed.Item, error) {
 	if topic == "" {
-		return nil, constants.ErrEmptyTopic
+		return nil, utils.ErrEmptyTopic
 	}
 	topic = strings.ToUpper(topic)
-	if _, ok := constants.TOPICS[topic]; ok {
+	if _, ok := utils.TOPICS[topic]; ok {
 		query := "/headlines/section/topic/" + topic + "?"
 		return g.getNews(query)
 	} else {
-		return nil, constants.ErrInvalidTopic
+		return nil, utils.ErrInvalidTopic
 	}
 }
 
 // GetNewsByLocation gets the news by location
 func (g *GNews) GetNewsByLocation(location string) ([]*gofeed.Item, error) {
 	if location == "" {
-		return nil, constants.ErrEmptyLocation
+		return nil, utils.ErrEmptyLocation
 	}
 	query := "/headlines/section/geo/" + location + "?"
 	return g.getNews(query)
