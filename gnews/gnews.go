@@ -2,14 +2,13 @@ package gnews
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/Zhima-Mochi/GNews-go/gnews/utils"
+	"github.com/gocolly/colly"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -24,6 +23,7 @@ type GNews struct {
 	excludeWebsites *[]string
 	proxy           *string
 	limit           int
+	collector       *colly.Collector
 }
 
 // NewGNews creates a new GNews instance
@@ -49,11 +49,13 @@ func NewGNews(language string, country string) *GNews {
 	} else {
 		country = utils.DEFAULT_COUNTRY
 	}
+	collector := colly.NewCollector(colly.Async(true))
 	gnews := &GNews{
-		baseURL:  baseURL,
-		language: language,
-		country:  country,
-		limit:    utils.MaxSearchResults,
+		baseURL:   baseURL,
+		language:  language,
+		country:   country,
+		limit:     utils.MaxSearchResults,
+		collector: collector,
 	}
 	return gnews
 }
@@ -164,23 +166,8 @@ func (g *GNews) composeURL(search string) url.URL {
 // 	return article, nil
 // }
 
-func CleanHTML(html string) string {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return ""
-	}
-	return doc.Text()
-}
-
-func (g *GNews) process(item *gofeed.Item) (*gofeed.Item, error) {
-	url, err := utils.ProcessURL(item, g.excludeWebsites)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(item.Description)
-	item.Link = url
-	item.Description = CleanHTML(item.Description)
-	item.Content = CleanHTML(item.Content)
+func (g *GNews) cleanRSSItem(item *gofeed.Item) (*gofeed.Item, error) {
+	item.Description = utils.CleanDescription(item.Description)
 	return item, nil
 }
 
@@ -198,32 +185,47 @@ func (g *GNews) GetNews() ([]*gofeed.Item, error) {
 	return g.getNews("")
 }
 
+// get original news link from google news
+func (g *GNews) getOriginalLink(sourceLink string) (string, error) {
+	originalLink := ""
+	g.collector.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		originalLink = e.Attr("href")
+	})
+	err := g.collector.Visit(sourceLink)
+	if err != nil {
+		return "", err
+	}
+	g.collector.Wait()
+	return originalLink, nil
+}
+
 func (g *GNews) GetItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
-	resp, err := client.Do(req)
+	feedItems, err := utils.GetFeedItems(client, req)
 	if err != nil {
-		return nil, fmt.Errorf("error getting response: %w", err)
+		return nil, err
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
-	}
-	fp := gofeed.NewParser()
-	feed, err := fp.ParseString(string(body))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing response body: %w", err)
-	}
-	items := make([]*gofeed.Item, 0, len(feed.Items))
-	for i, feedItem := range feed.Items {
-		if i >= g.limit {
+	items := make([]*gofeed.Item, 0, len(feedItems))
+	itemCount := 0
+	for _, feedItem := range feedItems {
+		if itemCount >= g.limit {
 			break
 		}
-		item, err := g.process(feedItem)
+		originalLink, err := g.getOriginalLink(feedItem.Link)
 		if err != nil {
 			return nil, err
 		}
-
+		if utils.IsExcludedSource(originalLink, g.excludeWebsites) {
+			continue
+		}
+		// set original link
+		feedItem.Link = originalLink
+		fmt.Println(feedItem.Link)
+		item, err := g.cleanRSSItem(feedItem)
+		if err != nil {
+			return nil, err
+		}
 		items = append(items, item)
+		itemCount++
 	}
 	return items, nil
 }
@@ -234,7 +236,7 @@ func (g *GNews) getNews(search string) ([]*gofeed.Item, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
-	req.Header.Set("User-Agent", utils.USER_AGENT)
+	req.Header.Set("User-Agent", utils.RandomUserAgent())
 	if g.proxy != nil {
 		proxyUrl, err := url.Parse(*g.proxy)
 		if err != nil {

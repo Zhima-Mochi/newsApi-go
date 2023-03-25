@@ -1,14 +1,14 @@
 package utils
 
 import (
-	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -200,7 +200,9 @@ var (
 		"Mozilla/5.0 (Windows  U  Windows NT 5.1  en-US) AppleWebKit/534.12 (KHTML, like Gecko) Chrome/9.0.583.0 Safari/534.12",
 	}
 
-	USER_AGENT = USER_AGENTS[rand.Intn(len(USER_AGENTS))]
+	RandomUserAgent = func() string {
+		return USER_AGENTS[rand.Intn(len(USER_AGENTS))]
+	}
 
 	DEFAULT_LANGUAGE = "zh-Hant"
 
@@ -462,34 +464,50 @@ func CountryMapping(country string) string {
 	return AVAILABLE_COUNTRIES[strings.ToLower(country)]
 }
 
-func ProcessURL(item *gofeed.Item, excludeWebsites *[]string) (string, error) {
-
+// IsExcludedSource checks if the item's link is from an excluded website
+func IsExcludedSource(url string, excludeWebsites *[]string) bool {
 	if excludeWebsites != nil {
 		for _, website := range *excludeWebsites {
 			r, _ := regexp.Compile(fmt.Sprintf(`^http(s)?://(www.)?%s.*`, strings.ToLower(website)))
-			if r.MatchString(item.Link) {
-				return "", nil
+			if r.MatchString(url) {
+				return true
 			}
 		}
 	}
+	return false
+}
 
-	// Check if the item.Link is a Google News link
-	link, err := url.Parse(item.Link)
+func CleanDescription(html string) string {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
-		return "", errors.New("error parsing URL: " + err.Error())
+		return ""
 	}
-	// If the item.Link is a Google News link, get the real link
-	if matched, _ := regexp.MatchString(GOOGLE_NEWS_REGEX, link.Host); matched {
-		resp, err := http.Head(link.Host)
-		if err != nil {
-			return "", errors.New("error getting URL: " + err.Error())
-		}
-		redirectedURL, err := url.Parse(resp.Header.Get("Location"))
-		if err != nil {
-			return "", errors.New("error parsing URL: " + err.Error())
-		}
-		link = redirectedURL
-	}
+	return doc.Text()
+}
 
-	return link.String(), nil
+func CleanHTML(html string) string {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return ""
+	}
+	return doc.Text()
+}
+
+// get feed items
+func GetFeedItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error getting response: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseString(string(body))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing response body: %w", err)
+	}
+	return feed.Items, nil
 }
