@@ -13,6 +13,8 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+type News gofeed.Item
+
 const (
 	// Topic
 	TopicWorld         string = "WORLD"
@@ -244,8 +246,9 @@ func (g *GNews) SetProxy(proxy string) *GNews {
 	return g
 }
 
-func GetNewsContent(url string) (string, error) {
+func (n *News) FetchContent() (string, error) {
 	var content string
+	url := n.Link
 	c := colly.NewCollector(colly.Async(true))
 	c.OnHTML("script", func(e *colly.HTMLElement) {
 		e.DOM.Remove()
@@ -293,19 +296,20 @@ func GetNewsContent(url string) (string, error) {
 	c.Wait()
 	if content != "" {
 		content = utils.CleanHTML(content)
-		return content, nil
+		n.Content = content
+		return n.Content, nil
 	} else {
 		return "", utils.ErrFailedToGetNewsContent
 	}
 }
 
-// GetTopNews gets the top news
-func (g *GNews) GetTopNews() ([]*gofeed.Item, error) {
+// GetTop gets the top news
+func (g *GNews) GetTopNews() ([]*News, error) {
 	return g.getNews("rss", "")
 }
 
-// GetNewsWithSearch gets the news with search
-func (g *GNews) GetNewsWithSearch(query string) ([]*gofeed.Item, error) {
+// Search searches the news
+func (g *GNews) SearchNews(query string) ([]*News, error) {
 	if query == "" {
 		return nil, utils.ErrEmptyQuery
 	}
@@ -313,8 +317,8 @@ func (g *GNews) GetNewsWithSearch(query string) ([]*gofeed.Item, error) {
 	return g.getNews("rss/search", query)
 }
 
-// GetNewsByGeoLocation gets the news by geo location
-func (g *GNews) GetNewsByGeoLocation(location string) ([]*gofeed.Item, error) {
+// GetLocationNews gets the news by location
+func (g *GNews) GetLocationNews(location string) ([]*News, error) {
 	if location == "" {
 		return nil, utils.ErrEmptyLocation
 	}
@@ -323,7 +327,7 @@ func (g *GNews) GetNewsByGeoLocation(location string) ([]*gofeed.Item, error) {
 }
 
 // GetNewsByTopic gets the news by topic
-func (g *GNews) GetNewsByTopic(topic string) ([]*gofeed.Item, error) {
+func (g *GNews) GetTopicNews(topic string) ([]*News, error) {
 	if topic == "" {
 		return nil, utils.ErrEmptyTopic
 	}
@@ -359,22 +363,35 @@ func (g *GNews) composeURL(path, query string) url.URL {
 	return searchURL
 }
 
-func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
+func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*News, error) {
 	feedItems, err := utils.GetFeedItems(client, req)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]*gofeed.Item, 0, len(feedItems))
+	items := make([]*News, 0, len(feedItems))
 	itemCount := 0
 	var wg sync.WaitGroup
 	for _, feedItem := range feedItems {
 		if itemCount >= g.limit {
 			break
 		}
+		news := &News{
+			Title:           feedItem.Title,
+			Description:     feedItem.Description,
+			Link:            feedItem.Link,
+			Links:           feedItem.Links,
+			Published:       feedItem.Published,
+			PublishedParsed: feedItem.PublishedParsed,
+			Updated:         feedItem.Updated,
+			UpdatedParsed:   feedItem.UpdatedParsed,
+			GUID:            feedItem.GUID,
+			Image:           feedItem.Image,
+			Categories:      feedItem.Categories,
+		}
 		wg.Add(1)
-		go func(feedItem *gofeed.Item) {
+		go func(news *News) {
 			defer wg.Done()
-			originalLink, err := g.getOriginalLink(feedItem.Link)
+			originalLink, err := g.getOriginalLink(news.Link)
 			if err != nil {
 				return
 			}
@@ -382,20 +399,20 @@ func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*gofeed.Item
 				return
 			}
 			// set original link
-			feedItem.Link = originalLink
-			item, err := g.cleanRSSItem(feedItem)
+			news.Link = originalLink
+			item, err := g.cleanRSSItem(news)
 			if err != nil {
 				return
 			}
 			items = append(items, item)
 			itemCount++
-		}(feedItem)
+		}(news)
 	}
 	wg.Wait()
 	return items, nil
 }
 
-func (g *GNews) getNews(path, query string) ([]*gofeed.Item, error) {
+func (g *GNews) getNews(path, query string) ([]*News, error) {
 	searchURL := g.composeURL(path, query)
 	req, err := http.NewRequest(http.MethodGet, searchURL.String(), nil)
 	if err != nil {
@@ -442,7 +459,7 @@ func (g *GNews) getOriginalLink(sourceLink string) (string, error) {
 	return originalLink, nil
 }
 
-func (g *GNews) cleanRSSItem(item *gofeed.Item) (*gofeed.Item, error) {
+func (g *GNews) cleanRSSItem(item *News) (*News, error) {
 	item.Description = utils.CleanDescription(item.Description)
 	return item, nil
 }

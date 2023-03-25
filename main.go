@@ -17,7 +17,7 @@ func main() {
 	after := before.Add(-time.Hour * 24)
 	google_news.SetStartDate(&after)
 	google_news.SetEndDate(&before)
-	results, err := google_news.GetNewsByTopic(gnews.TopicBusiness)
+	results, err := google_news.GetTopicNews(gnews.TopicBusiness)
 	if err != nil {
 		fmt.Println(err)
 		return
