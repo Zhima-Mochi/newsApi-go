@@ -5,7 +5,8 @@
 
 
 # Introduction
-This repository contains a Go implementation of the [ranahaani/GNews](https://github.com/ranahaani/GNews) code.
+This package is inspired by the [ranahaani/GNews](https://github.com/ranahaani/GNews) which is written in Python, and is used to fetch the latest news from Google News.  
+The original data is from [Google News](https://news.google.com/rss), and we use `colly` to fetch the content of the news.
 
 # Installation
 ```bash
