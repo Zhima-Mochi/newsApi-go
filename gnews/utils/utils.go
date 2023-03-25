@@ -450,6 +450,8 @@ var (
 	ErrInvalidTopic = fmt.Errorf("invalid topic")
 
 	ErrEmptyLocation = fmt.Errorf("location cannot be empty")
+
+	ErrFailedToGetNewsContent = fmt.Errorf("failed to get news content")
 )
 
 const (

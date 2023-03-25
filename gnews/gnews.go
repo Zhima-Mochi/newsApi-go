@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Zhima-Mochi/GNews-go/gnews/utils"
@@ -23,7 +24,6 @@ type GNews struct {
 	excludeWebsites *[]string
 	proxy           *string
 	limit           int
-	collector       *colly.Collector
 }
 
 // NewGNews creates a new GNews instance
@@ -49,13 +49,11 @@ func NewGNews(language string, country string) *GNews {
 	} else {
 		country = utils.DEFAULT_COUNTRY
 	}
-	collector := colly.NewCollector(colly.Async(true))
 	gnews := &GNews{
-		baseURL:   baseURL,
-		language:  language,
-		country:   country,
-		limit:     utils.MaxSearchResults,
-		collector: collector,
+		baseURL:  baseURL,
+		language: language,
+		country:  country,
+		limit:    utils.MaxSearchResults,
 	}
 	return gnews
 }
@@ -103,135 +101,159 @@ func (g *GNews) SetProxy(proxy string) *GNews {
 	return g
 }
 
-func (g *GNews) composeURL(search string) url.URL {
-	searchURL := g.baseURL
-	query := url.Values{}
-	query.Add("hl", g.language)
-	query.Add("gl", g.country)
-	query.Add("ceid", g.country+":"+g.language)
-	if search == "" {
-		searchURL.Path = "rss"
-	} else {
-		searchURL.Path = "rss/search"
-		query.Set("q", search)
-		if g.period != nil {
-			query.Set("q", query.Get("q")+"+when:"+g.period.String())
-		}
-		if g.endDate != nil {
-			query.Set("q", query.Get("q")+"+before:"+g.endDate.Format("2006-01-02"))
-		}
-		if g.startDate != nil {
-			query.Set("q", query.Get("q")+"+after:"+g.startDate.Format("2006-01-02"))
-		}
-	}
-	searchURL.RawQuery = query.Encode()
-	return searchURL
-}
-
-// type Article struct {
-// 	Title       string
-// 	Description string
-// 	Content     string
-// 	URL         string
-// 	ImageURL    string
-// 	PublishedAt time.Time
-// 	Source      string
-// }
-
-// func GetFullArticle(url string) (*Article, error) {
-// 	resp, err := http.Get(url)
-// 	if err != nil {
-// 		return nil, errors.New("failed to download article")
-// 	}
-// 	defer resp.Body.Close()
-
-// 	doc, err := goquery.NewDocumentFromReader(resp.Body)
-// 	if err != nil {
-// 		return nil, errors.New("failed to parse HTML")
-// 	}
-// 	text, err := html2text.FromReader(strings.NewReader(doc.Text()), html2text.Options{})
-// 	if err != nil {
-// 		return nil, errors.New("failed to convert HTML to text")
-// 	}
-// 	article := &Article{
-// 		Title:       doc.Find("h1").Text(),
-// 		Description: doc.Find("meta[name=description]").AttrOr("content", ""),
-// 		Content:     text,
-// 		URL:         url,
-// 		ImageURL:    doc.Find("meta[property='og:image']").AttrOr("content", ""),
-// 		PublishedAt: time.Now(),
-// 		Source:      doc.Find("meta[property='og:site_name']").AttrOr("content", ""),
-// 	}
-
-// 	return article, nil
-// }
-
-func (g *GNews) cleanRSSItem(item *gofeed.Item) (*gofeed.Item, error) {
-	item.Description = utils.CleanDescription(item.Description)
-	return item, nil
-}
-
-// GetNewsWithSearch gets the news with a search query
-func (g *GNews) GetNewsWithSearch(search string) ([]*gofeed.Item, error) {
-	if search == "" {
-		return nil, utils.ErrEmptyQuery
-	}
-	search = strings.ReplaceAll(search, " ", "%20")
-	return g.getNews(search)
-}
-
-// GetNews gets the news
-func (g *GNews) GetNews() ([]*gofeed.Item, error) {
-	return g.getNews("")
-}
-
-// get original news link from google news
-func (g *GNews) getOriginalLink(sourceLink string) (string, error) {
-	originalLink := ""
-	g.collector.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		originalLink = e.Attr("href")
+func (g *GNews) GetNewsContent(url string) (string, error) {
+	var content string
+	c := colly.NewCollector(colly.Async(true))
+	c.OnHTML("script", func(e *colly.HTMLElement) {
+		e.DOM.Remove()
 	})
-	err := g.collector.Visit(sourceLink)
+	helper := func(e *colly.HTMLElement) {
+		e.ForEach("p", func(_ int, el *colly.HTMLElement) {
+			content += el.Text + "\n"
+		})
+	}
+
+	if strings.Contains(url, "yahoo.com") {
+		c.OnHTML(".caas-body", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "chinatimes.com") {
+		c.OnHTML(".article-body", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "tvbs.com") {
+		c.OnHTML(".article_content", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "appledaily.com") {
+		c.OnHTML(".ndArticle_margin", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "ettoday.net") {
+		c.OnHTML(".story", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "ltn.com") {
+		c.OnHTML(".text", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "chinatimes.com") {
+		c.OnHTML(".article-body", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	}
+
+	err := c.Visit(url)
 	if err != nil {
 		return "", err
 	}
-	g.collector.Wait()
-	return originalLink, nil
+	c.Wait()
+	if content != "" {
+		content = utils.CleanHTML(content)
+		return content, nil
+	} else {
+		return "", utils.ErrFailedToGetNewsContent
+	}
 }
 
-func (g *GNews) GetItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
+// GetTopNews gets the top news
+func (g *GNews) GetTopNews() ([]*gofeed.Item, error) {
+	return g.getNews("rss", "")
+}
+
+// GetNewsWithSearch gets the news with search
+func (g *GNews) GetNewsWithSearch(query string) ([]*gofeed.Item, error) {
+	if query == "" {
+		return nil, utils.ErrEmptyQuery
+	}
+	query = strings.ReplaceAll(query, " ", "%20")
+	return g.getNews("rss/search", query)
+}
+
+// GetNewsByLocation gets the news by location
+func (g *GNews) GetNewsByLocation(location string) ([]*gofeed.Item, error) {
+	if location == "" {
+		return nil, utils.ErrEmptyLocation
+	}
+	path := "rss/headlines/section/geo/" + location
+	return g.getNews(path, "")
+}
+
+// GetNewsByTopic gets the news by topic
+func (g *GNews) GetNewsByTopic(topic string) ([]*gofeed.Item, error) {
+	if topic == "" {
+		return nil, utils.ErrEmptyTopic
+	}
+	topic = strings.ToUpper(topic)
+	if _, ok := utils.TOPICS[topic]; ok {
+		path := "rss/headlines/section/topic/" + topic
+		return g.getNews(path, "")
+	} else {
+		return nil, utils.ErrInvalidTopic
+	}
+}
+
+func (g *GNews) composeURL(path, query string) url.URL {
+	searchURL := g.baseURL
+	q := url.Values{}
+	q.Add("hl", g.language)
+	q.Add("gl", g.country)
+	q.Add("ceid", g.country+":"+g.language)
+	searchURL.Path = path
+	if query != "" {
+		q.Set("q", query)
+		if g.period != nil {
+			q.Set("q", q.Get("q")+"+when:"+g.period.String())
+		}
+		if g.endDate != nil {
+			q.Set("q", q.Get("q")+"+before:"+g.endDate.Format("2006-01-02"))
+		}
+		if g.startDate != nil {
+			q.Set("q", q.Get("q")+"+after:"+g.startDate.Format("2006-01-02"))
+		}
+	}
+	searchURL.RawQuery = q.Encode()
+	return searchURL
+}
+
+func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
 	feedItems, err := utils.GetFeedItems(client, req)
 	if err != nil {
 		return nil, err
 	}
 	items := make([]*gofeed.Item, 0, len(feedItems))
 	itemCount := 0
+	var wg sync.WaitGroup
 	for _, feedItem := range feedItems {
 		if itemCount >= g.limit {
 			break
 		}
-		originalLink, err := g.getOriginalLink(feedItem.Link)
-		if err != nil {
-			return nil, err
-		}
-		if utils.IsExcludedSource(originalLink, g.excludeWebsites) {
-			continue
-		}
-		// set original link
-		feedItem.Link = originalLink
-		fmt.Println(feedItem.Link)
-		item, err := g.cleanRSSItem(feedItem)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-		itemCount++
+		wg.Add(1)
+		go func(feedItem *gofeed.Item) {
+			defer wg.Done()
+			originalLink, err := g.getOriginalLink(feedItem.Link)
+			if err != nil {
+				return
+			}
+			if utils.IsExcludedSource(originalLink, g.excludeWebsites) {
+				return
+			}
+			// set original link
+			feedItem.Link = originalLink
+			item, err := g.cleanRSSItem(feedItem)
+			if err != nil {
+				return
+			}
+			items = append(items, item)
+			itemCount++
+		}(feedItem)
 	}
+	wg.Wait()
 	return items, nil
 }
 
-func (g *GNews) getNews(search string) ([]*gofeed.Item, error) {
-	searchURL := g.composeURL(search)
+func (g *GNews) getNews(path, query string) ([]*gofeed.Item, error) {
+	searchURL := g.composeURL(path, query)
 	req, err := http.NewRequest(http.MethodGet, searchURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -248,13 +270,13 @@ func (g *GNews) getNews(search string) ([]*gofeed.Item, error) {
 		client := &http.Client{
 			Transport: transport,
 		}
-		items, err := g.GetItems(client, req)
+		items, err := g.getItems(client, req)
 		if err != nil {
 			return nil, err
 		}
 		return items, nil
 	} else {
-		items, err := g.GetItems(http.DefaultClient, req)
+		items, err := g.getItems(http.DefaultClient, req)
 		if err != nil {
 			return nil, err
 		}
@@ -262,31 +284,22 @@ func (g *GNews) getNews(search string) ([]*gofeed.Item, error) {
 	}
 }
 
-// GetTopNews gets the top news
-func (g *GNews) GetTopNews() ([]*gofeed.Item, error) {
-	query := "?"
-	return g.getNews(query)
+// get original news link from google news
+func (g *GNews) getOriginalLink(sourceLink string) (string, error) {
+	originalLink := ""
+	c := colly.NewCollector(colly.Async(true))
+	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		originalLink = e.Attr("href")
+	})
+	err := c.Visit(sourceLink)
+	if err != nil {
+		return "", err
+	}
+	c.Wait()
+	return originalLink, nil
 }
 
-// GetNewsByTopic gets the news by topic
-func (g *GNews) GetNewsByTopic(topic string) ([]*gofeed.Item, error) {
-	if topic == "" {
-		return nil, utils.ErrEmptyTopic
-	}
-	topic = strings.ToUpper(topic)
-	if _, ok := utils.TOPICS[topic]; ok {
-		query := "/headlines/section/topic/" + topic + "?"
-		return g.getNews(query)
-	} else {
-		return nil, utils.ErrInvalidTopic
-	}
-}
-
-// GetNewsByLocation gets the news by location
-func (g *GNews) GetNewsByLocation(location string) ([]*gofeed.Item, error) {
-	if location == "" {
-		return nil, utils.ErrEmptyLocation
-	}
-	query := "/headlines/section/geo/" + location + "?"
-	return g.getNews(query)
+func (g *GNews) cleanRSSItem(item *gofeed.Item) (*gofeed.Item, error) {
+	item.Description = utils.CleanDescription(item.Description)
+	return item, nil
 }
