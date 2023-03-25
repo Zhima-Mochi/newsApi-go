@@ -13,6 +13,145 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+const (
+	// Topic
+	TopicWorld         string = "WORLD"
+	TopicNation        string = "NATION"
+	TopicBusiness      string = "BUSINESS"
+	TopicTechnology    string = "TECHNOLOGY"
+	TopicEntertainment string = "ENTERTAINMENT"
+	TopicSports        string = "SPORTS"
+	TopicScience       string = "SCIENCE"
+	TopicHealth        string = "HEALTH"
+)
+
+var (
+	TopicMap = map[string]string{
+		TopicWorld:         "w",
+		TopicNation:        "n",
+		TopicBusiness:      "b",
+		TopicTechnology:    "t",
+		TopicEntertainment: "e",
+		TopicSports:        "s",
+		TopicScience:       "snc",
+		TopicHealth:        "m",
+	}
+)
+
+const (
+	LanguageEnglish            = "en"
+	LanguageIndonesian         = "id"
+	LanguageCzech              = "cs"
+	LanguageGerman             = "de"
+	LanguageSpanish            = "es-419"
+	LanguageFrench             = "fr"
+	LanguageItalian            = "it"
+	LanguageLatvian            = "lv"
+	LanguageLithuanian         = "lt"
+	LanguageHungarian          = "hu"
+	LanguageDutch              = "nl"
+	LanguageNorwegian          = "no"
+	LanguagePolish             = "pl"
+	LanguagePortugueseBrasil   = "pt-419"
+	LanguagePortuguesePortugal = "pt-150"
+	LanguageRomanian           = "ro"
+	LanguageSlovak             = "sk"
+	LanguageSlovenian          = "sl"
+	LanguageSwedish            = "sv"
+	LanguageVietnamese         = "vi"
+	LanguageTurkish            = "tr"
+	LanguageGreek              = "el"
+	LanguageBulgarian          = "bg"
+	LanguageRussian            = "ru"
+	LanguageSerbian            = "sr"
+	LanguageUkrainian          = "uk"
+	LanguageHebrew             = "he"
+	LanguageArabic             = "ar"
+	LanguageMarathi            = "mr"
+	LanguageHindi              = "hi"
+	LanguageBengali            = "bn"
+	LanguageTamil              = "ta"
+	LanguageTelugu             = "te"
+	LanguageMalyalam           = "ml"
+	LanguageThai               = "th"
+	LanguageChineseSimplified  = "zh-Hans"
+	LanguageChineseTraditional = "zh-Hant"
+	LanguageJapanese           = "ja"
+	LanguageKorean             = "ko"
+)
+
+const (
+	CountryAustralia          = "AU"
+	CountryBotswana           = "BW"
+	CountryCanada             = "CA"
+	CountryEthiopia           = "ET"
+	CountryGhana              = "GH"
+	CountryIndia              = "IN"
+	CountryIndonesia          = "ID"
+	CountryIreland            = "IE"
+	CountryIsrael             = "IL"
+	CountryKenya              = "KE"
+	CountryLatvia             = "LV"
+	CountryMalaysia           = "MY"
+	CountryNamibia            = "NA"
+	CountryNewZealand         = "NZ"
+	CountryNigeria            = "NG"
+	CountryPakistan           = "PK"
+	CountryPhilippines        = "PH"
+	CountrySingapore          = "SG"
+	CountrySouthAfrica        = "ZA"
+	CountryTanzania           = "TZ"
+	CountryUganda             = "UG"
+	CountryUnitedKingdom      = "GB"
+	CountryUnitedStates       = "US"
+	CountryZimbabwe           = "ZW"
+	CountryCzechRepublic      = "CZ"
+	CountryGermany            = "DE"
+	CountryAustria            = "AT"
+	CountrySwitzerland        = "CH"
+	CountryArgentina          = "AR"
+	CountryChile              = "CL"
+	CountryColombia           = "CO"
+	CountryCuba               = "CU"
+	CountryMexico             = "MX"
+	CountryPeru               = "PE"
+	CountryVenezuela          = "VE"
+	CountryBelgium            = "BE"
+	CountryFrance             = "FR"
+	CountryMorocco            = "MA"
+	CountrySenegal            = "SN"
+	CountryItaly              = "IT"
+	CountryLithuania          = "LT"
+	CountryHungary            = "HU"
+	CountryNetherlands        = "NL"
+	CountryNorway             = "NO"
+	CountryPoland             = "PL"
+	CountryBrazil             = "BR"
+	CountryPortugal           = "PT"
+	CountryRomania            = "RO"
+	CountrySlovakia           = "SK"
+	CountrySlovenia           = "SI"
+	CountrySweden             = "SE"
+	CountryVietnam            = "VN"
+	CountryTurkey             = "TR"
+	CountryGreece             = "GR"
+	CountryBulgaria           = "BG"
+	CountryRussia             = "RU"
+	CountryUkraine            = "UA"
+	CountrySerbia             = "RS"
+	CountryUnitedArabEmirates = "AE"
+	CountrySaudiArabia        = "SA"
+	CountryLebanon            = "LB"
+	CountryEgypt              = "EG"
+	CountryBangladesh         = "BD"
+	CountryThailand           = "TH"
+	CountryChina              = "CN"
+	CountryTaiwan             = "TW"
+	CountryHongKong           = "HK"
+	CountryJapan              = "JP"
+	CountryRepublicOfKorea    = "KR"
+)
+
 // GNews is the main struct
 type GNews struct {
 	baseURL         url.URL
@@ -33,29 +172,31 @@ type GNews struct {
 // The default country is TW
 // Language is the language of the news (e.g. en, fr, de, etc.)
 // Country is the country of the news (e.g. US, FR, DE, etc.)
-func NewGNews(language string, country string) *GNews {
+func NewGNews() *GNews {
 	baseURL := url.URL{
 		Scheme: "https",
 		Host:   "news.google.com",
 		Path:   "/",
 	}
-	if lang, ok := utils.AVAILABLE_LANGUAGES[language]; ok {
-		language = lang
-	} else {
-		language = utils.DEFAULT_LANGUAGE
-	}
-	if ctry, ok := utils.AVAILABLE_COUNTRIES[country]; ok {
-		country = ctry
-	} else {
-		country = utils.DEFAULT_COUNTRY
-	}
 	gnews := &GNews{
 		baseURL:  baseURL,
-		language: language,
-		country:  country,
+		language: LanguageChineseTraditional,
+		country:  CountryTaiwan,
 		limit:    utils.MaxSearchResults,
 	}
 	return gnews
+}
+
+// SetLanguage sets the language of the news
+func (g *GNews) SetLanguage(language string) *GNews {
+	g.language = language
+	return g
+}
+
+// SetCountry sets the country of the news
+func (g *GNews) SetCountry(country string) *GNews {
+	g.country = country
+	return g
 }
 
 // SetLimit sets the limit of the results
@@ -101,7 +242,7 @@ func (g *GNews) SetProxy(proxy string) *GNews {
 	return g
 }
 
-func (g *GNews) GetNewsContent(url string) (string, error) {
+func GetNewsContent(url string) (string, error) {
 	var content string
 	c := colly.NewCollector(colly.Async(true))
 	c.OnHTML("script", func(e *colly.HTMLElement) {
@@ -185,7 +326,7 @@ func (g *GNews) GetNewsByTopic(topic string) ([]*gofeed.Item, error) {
 		return nil, utils.ErrEmptyTopic
 	}
 	topic = strings.ToUpper(topic)
-	if _, ok := utils.TOPICS[topic]; ok {
+	if _, ok := TopicMap[topic]; ok {
 		path := "rss/headlines/section/topic/" + topic
 		return g.getNews(path, "")
 	} else {

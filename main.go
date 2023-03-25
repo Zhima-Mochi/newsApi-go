@@ -9,13 +9,13 @@ import (
 
 func main() {
 
-	google_news := gnews.NewGNews("chinese traditional", "Taiwan")
+	google_news := gnews.NewGNews()
 	google_news.SetLimit(10)
 	before := time.Now()
 	after := before.Add(-time.Hour * 24)
 	google_news.SetStartDate(&after)
 	google_news.SetEndDate(&before)
-	results, err := google_news.GetTopNews()
+	results, err := google_news.GetNewsByTopic(gnews.TopicBusiness)
 	if err != nil {
 		fmt.Println(err)
 		return

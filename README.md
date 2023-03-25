@@ -1,6 +1,6 @@
 # GNews-go
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/Zhima-Mochi/gnews-go)](https://goreportcard.com/report/github.com/Zhima-Mochi/gnews-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Zhima-Mochi/Gnews-go)](https://goreportcard.com/report/github.com/Zhima-Mochi/Gnews-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
