@@ -10,10 +10,7 @@ import (
 
 	"github.com/Zhima-Mochi/GNews-go/gnews/utils"
 	"github.com/gocolly/colly"
-	"github.com/mmcdole/gofeed"
 )
-
-type News gofeed.Item
 
 const (
 	// Topic
@@ -271,6 +268,10 @@ func (n *News) FetchContent() (string, error) {
 		c.OnHTML(".article_content", func(e *colly.HTMLElement) {
 			helper(e)
 		})
+	} else if strings.Contains(url, "udn.com") {
+		c.OnHTML(".article-content__editor", func(e *colly.HTMLElement) {
+			helper(e)
+		})
 	} else if strings.Contains(url, "appledaily.com") {
 		c.OnHTML(".ndArticle_margin", func(e *colly.HTMLElement) {
 			helper(e)
@@ -283,7 +284,23 @@ func (n *News) FetchContent() (string, error) {
 		c.OnHTML(".text", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "chinatimes.com") {
+	} else if strings.Contains(url, "cnn.com") {
+		c.OnHTML(".zn-body__paragraph", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "reuters.com") {
+		c.OnHTML(".StandardArticleBody_body", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "cnbc.com") {
+		c.OnHTML(".group", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if strings.Contains(url, "marketwatch.com") {
+		c.OnHTML(".article__body", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else {
 		c.OnHTML(".article-body", func(e *colly.HTMLElement) {
 			helper(e)
 		})
@@ -385,8 +402,10 @@ func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*News, error
 			Updated:         feedItem.Updated,
 			UpdatedParsed:   feedItem.UpdatedParsed,
 			GUID:            feedItem.GUID,
-			Image:           feedItem.Image,
 			Categories:      feedItem.Categories,
+		}
+		if feedItem.Image != nil {
+			news.ImageURL = feedItem.Image.URL
 		}
 		wg.Add(1)
 		go func(news *News) {
