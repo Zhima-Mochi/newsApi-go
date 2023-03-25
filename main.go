@@ -11,6 +11,8 @@ func main() {
 
 	google_news := gnews.NewGNews()
 	google_news.SetLimit(10)
+	google_news.SetLanguage(gnews.LanguageEnglish)
+	google_news.SetLocation(gnews.LocationTaiwan)
 	before := time.Now()
 	after := before.Add(-time.Hour * 24)
 	google_news.SetStartDate(&after)

@@ -38,6 +38,7 @@ var (
 	}
 )
 
+// Host Language
 const (
 	LanguageEnglish            = "en"
 	LanguageIndonesian         = "id"
@@ -80,83 +81,84 @@ const (
 	LanguageKorean             = "ko"
 )
 
+// Geographic Location
 const (
-	CountryAustralia          = "AU"
-	CountryBotswana           = "BW"
-	CountryCanada             = "CA"
-	CountryEthiopia           = "ET"
-	CountryGhana              = "GH"
-	CountryIndia              = "IN"
-	CountryIndonesia          = "ID"
-	CountryIreland            = "IE"
-	CountryIsrael             = "IL"
-	CountryKenya              = "KE"
-	CountryLatvia             = "LV"
-	CountryMalaysia           = "MY"
-	CountryNamibia            = "NA"
-	CountryNewZealand         = "NZ"
-	CountryNigeria            = "NG"
-	CountryPakistan           = "PK"
-	CountryPhilippines        = "PH"
-	CountrySingapore          = "SG"
-	CountrySouthAfrica        = "ZA"
-	CountryTanzania           = "TZ"
-	CountryUganda             = "UG"
-	CountryUnitedKingdom      = "GB"
-	CountryUnitedStates       = "US"
-	CountryZimbabwe           = "ZW"
-	CountryCzechRepublic      = "CZ"
-	CountryGermany            = "DE"
-	CountryAustria            = "AT"
-	CountrySwitzerland        = "CH"
-	CountryArgentina          = "AR"
-	CountryChile              = "CL"
-	CountryColombia           = "CO"
-	CountryCuba               = "CU"
-	CountryMexico             = "MX"
-	CountryPeru               = "PE"
-	CountryVenezuela          = "VE"
-	CountryBelgium            = "BE"
-	CountryFrance             = "FR"
-	CountryMorocco            = "MA"
-	CountrySenegal            = "SN"
-	CountryItaly              = "IT"
-	CountryLithuania          = "LT"
-	CountryHungary            = "HU"
-	CountryNetherlands        = "NL"
-	CountryNorway             = "NO"
-	CountryPoland             = "PL"
-	CountryBrazil             = "BR"
-	CountryPortugal           = "PT"
-	CountryRomania            = "RO"
-	CountrySlovakia           = "SK"
-	CountrySlovenia           = "SI"
-	CountrySweden             = "SE"
-	CountryVietnam            = "VN"
-	CountryTurkey             = "TR"
-	CountryGreece             = "GR"
-	CountryBulgaria           = "BG"
-	CountryRussia             = "RU"
-	CountryUkraine            = "UA"
-	CountrySerbia             = "RS"
-	CountryUnitedArabEmirates = "AE"
-	CountrySaudiArabia        = "SA"
-	CountryLebanon            = "LB"
-	CountryEgypt              = "EG"
-	CountryBangladesh         = "BD"
-	CountryThailand           = "TH"
-	CountryChina              = "CN"
-	CountryTaiwan             = "TW"
-	CountryHongKong           = "HK"
-	CountryJapan              = "JP"
-	CountryRepublicOfKorea    = "KR"
+	LocationAustralia          = "AU"
+	LocationBotswana           = "BW"
+	LocationCanada             = "CA"
+	LocationEthiopia           = "ET"
+	LocationGhana              = "GH"
+	LocationIndia              = "IN"
+	LocationIndonesia          = "ID"
+	LocationIreland            = "IE"
+	LocationIsrael             = "IL"
+	LocationKenya              = "KE"
+	LocationLatvia             = "LV"
+	LocationMalaysia           = "MY"
+	LocationNamibia            = "NA"
+	LocationNewZealand         = "NZ"
+	LocationNigeria            = "NG"
+	LocationPakistan           = "PK"
+	LocationPhilippines        = "PH"
+	LocationSingapore          = "SG"
+	LocationSouthAfrica        = "ZA"
+	LocationTanzania           = "TZ"
+	LocationUganda             = "UG"
+	LocationUnitedKingdom      = "GB"
+	LocationUnitedStates       = "US"
+	LocationZimbabwe           = "ZW"
+	LocationCzechRepublic      = "CZ"
+	LocationGermany            = "DE"
+	LocationAustria            = "AT"
+	LocationSwitzerland        = "CH"
+	LocationArgentina          = "AR"
+	LocationChile              = "CL"
+	LocationColombia           = "CO"
+	LocationCuba               = "CU"
+	LocationMexico             = "MX"
+	LocationPeru               = "PE"
+	LocationVenezuela          = "VE"
+	LocationBelgium            = "BE"
+	LocationFrance             = "FR"
+	LocationMorocco            = "MA"
+	LocationSenegal            = "SN"
+	LocationItaly              = "IT"
+	LocationLithuania          = "LT"
+	LocationHungary            = "HU"
+	LocationNetherlands        = "NL"
+	LocationNorway             = "NO"
+	LocationPoland             = "PL"
+	LocationBrazil             = "BR"
+	LocationPortugal           = "PT"
+	LocationRomania            = "RO"
+	LocationSlovakia           = "SK"
+	LocationSlovenia           = "SI"
+	LocationSweden             = "SE"
+	LocationVietnam            = "VN"
+	LocationTurkey             = "TR"
+	LocationGreece             = "GR"
+	LocationBulgaria           = "BG"
+	LocationRussia             = "RU"
+	LocationUkraine            = "UA"
+	LocationSerbia             = "RS"
+	LocationUnitedArabEmirates = "AE"
+	LocationSaudiArabia        = "SA"
+	LocationLebanon            = "LB"
+	LocationEgypt              = "EG"
+	LocationBangladesh         = "BD"
+	LocationThailand           = "TH"
+	LocationChina              = "CN"
+	LocationTaiwan             = "TW"
+	LocationHongKong           = "HK"
+	LocationJapan              = "JP"
+	LocationRepublicOfKorea    = "KR"
 )
 
 // GNews is the main struct
 type GNews struct {
 	baseURL         url.URL
 	language        string
-	country         string
+	location        string
 	period          *time.Duration
 	startDate       *time.Time
 	endDate         *time.Time
@@ -166,12 +168,12 @@ type GNews struct {
 }
 
 // NewGNews creates a new GNews instance
-// Language and country are optional
-// If you don't specify them, the default language and country will be used
+// Language and location are optional
+// If you don't specify them, the default language and location will be used
 // The default language is traditional Chinese
-// The default country is TW
+// The default location is TW
 // Language is the language of the news (e.g. en, fr, de, etc.)
-// Country is the country of the news (e.g. US, FR, DE, etc.)
+// Location is the location of the news (e.g. US, FR, DE, etc.)
 func NewGNews() *GNews {
 	baseURL := url.URL{
 		Scheme: "https",
@@ -181,7 +183,7 @@ func NewGNews() *GNews {
 	gnews := &GNews{
 		baseURL:  baseURL,
 		language: LanguageChineseTraditional,
-		country:  CountryTaiwan,
+		location: LocationTaiwan,
 		limit:    utils.MaxSearchResults,
 	}
 	return gnews
@@ -193,9 +195,9 @@ func (g *GNews) SetLanguage(language string) *GNews {
 	return g
 }
 
-// SetCountry sets the country of the news
-func (g *GNews) SetCountry(country string) *GNews {
-	g.country = country
+// SetLocation sets the location of the news
+func (g *GNews) SetLocation(location string) *GNews {
+	g.location = location
 	return g
 }
 
@@ -311,8 +313,8 @@ func (g *GNews) GetNewsWithSearch(query string) ([]*gofeed.Item, error) {
 	return g.getNews("rss/search", query)
 }
 
-// GetNewsByLocation gets the news by location
-func (g *GNews) GetNewsByLocation(location string) ([]*gofeed.Item, error) {
+// GetNewsByGeoLocation gets the news by geo location
+func (g *GNews) GetNewsByGeoLocation(location string) ([]*gofeed.Item, error) {
 	if location == "" {
 		return nil, utils.ErrEmptyLocation
 	}
@@ -338,8 +340,8 @@ func (g *GNews) composeURL(path, query string) url.URL {
 	searchURL := g.baseURL
 	q := url.Values{}
 	q.Add("hl", g.language)
-	q.Add("gl", g.country)
-	q.Add("ceid", g.country+":"+g.language)
+	q.Add("gl", g.location)
+	q.Add("ceid", g.location+":"+g.language)
 	searchURL.Path = path
 	if query != "" {
 		q.Set("q", query)
