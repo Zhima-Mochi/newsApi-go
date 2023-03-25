@@ -33,7 +33,7 @@ func main(){
 
 ## Set options
 ```go
-gnews.SetLocation(gnews.CountryJapan) // default is Taiwan
+gnews.SetLocation(gnews.LocationJapan) // default is Taiwan
 gnews.SetLanguage(gnews.LanguageJapanese) // default is Traditional Chinese
 gnews.SetBefore(time.Now())
 gnews.SetAfter(time.Now().AddDate(0, 0, -7))
