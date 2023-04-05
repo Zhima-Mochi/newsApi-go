@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -438,6 +439,7 @@ func (g *GNews) getNews(path, query string) ([]*News, error) {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 	req.Header.Set("User-Agent", utils.RandomUserAgent())
+	items := make([]*News, 0)
 	if g.proxy != nil {
 		proxyUrl, err := url.Parse(*g.proxy)
 		if err != nil {
@@ -449,18 +451,22 @@ func (g *GNews) getNews(path, query string) ([]*News, error) {
 		client := &http.Client{
 			Transport: transport,
 		}
-		items, err := g.getItems(client, req)
+		items, err = g.getItems(client, req)
 		if err != nil {
 			return nil, err
 		}
 		return items, nil
 	} else {
-		items, err := g.getItems(http.DefaultClient, req)
+		items, err = g.getItems(http.DefaultClient, req)
 		if err != nil {
 			return nil, err
 		}
-		return items, nil
 	}
+	// sort by published date
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].PublishedParsed.After(*items[j].PublishedParsed)
+	})
+	return items, nil
 }
 
 // get original news link from google news
