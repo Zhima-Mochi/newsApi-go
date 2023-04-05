@@ -10,7 +10,7 @@ The original data is from [Google News](https://news.google.com/rss), and we use
 
 # Installation
 ```bash
-go get github.com/Zhima-Mochi/Gnews-go
+go get github.com/Zhima-Mochi/GNews-go 
 ```
 
 # Usage
@@ -20,11 +20,11 @@ package main
 
 import (
     "fmt"
-    "github.com/Zhima-Mochi/Gnews-go"
+    "github.com/Zhima-Mochi/GNews-go"
 )
 
 func main(){
-    gnews := gnews.NewGnews()
+    gnews := gnews.NewGNews()
     // return struct of News
     newss, err := gnews.GetTopNews() 
 }
