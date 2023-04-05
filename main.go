@@ -17,20 +17,20 @@ func main() {
 	after := before.Add(-time.Hour * 24)
 	google_news.SetStartDate(&after)
 	google_news.SetEndDate(&before)
-	newss, err := google_news.GetTopicNews(gnews.TopicBusiness)
+	newss, err := google_news.GetTopNews()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	for _, news := range newss {
+		fmt.Println("=================================")
 		fmt.Println(news.Title)
 		fmt.Println(news.Link)
 		_, err := news.FetchContent()
 		if err != nil {
 			fmt.Println(err)
-			return
+			continue
 		}
 		fmt.Println(news.Content)
-		fmt.Println("=================================")
 	}
 }

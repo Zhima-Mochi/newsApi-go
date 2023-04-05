@@ -381,18 +381,13 @@ func (g *GNews) composeURL(path, query string) url.URL {
 	return searchURL
 }
 
-func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*News, error) {
+func (g *GNews) getAllItems(client *http.Client, req *http.Request) ([]*News, error) {
 	feedItems, err := utils.GetFeedItems(client, req)
 	if err != nil {
 		return nil, err
 	}
 	items := make([]*News, 0, len(feedItems))
-	itemCount := 0
-	var wg sync.WaitGroup
 	for _, feedItem := range feedItems {
-		if itemCount >= g.limit {
-			break
-		}
 		news := &News{
 			Title:           feedItem.Title,
 			Description:     feedItem.Description,
@@ -408,28 +403,45 @@ func (g *GNews) getItems(client *http.Client, req *http.Request) ([]*News, error
 		if feedItem.Image != nil {
 			news.ImageURL = feedItem.Image.URL
 		}
-		wg.Add(1)
-		go func(news *News) {
-			defer wg.Done()
-			originalLink, err := g.getOriginalLink(news.Link)
-			if err != nil {
-				return
-			}
-			if utils.IsExcludedSource(originalLink, g.excludeWebsites) {
-				return
-			}
-			// set original link
-			news.Link = originalLink
-			item, err := g.cleanRSSItem(news)
-			if err != nil {
-				return
-			}
-			items = append(items, item)
-			itemCount++
-		}(news)
+		items = append(items, news)
 	}
-	wg.Wait()
+	// sort by published date
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].PublishedParsed.After(*items[j].PublishedParsed)
+	})
 	return items, nil
+}
+
+// clean items
+func (g *GNews) cleanItems(items []*News) []*News {
+	var wg sync.WaitGroup
+	newItems := make([]*News, 0, g.limit)
+	count := 0
+	for len(newItems) < g.limit && count < len(items) {
+		currentLen := len(newItems)
+		currentCount := count
+		for i := currentCount; i < len(items) && i < currentCount+g.limit-currentLen; i++ {
+			item := items[i]
+			wg.Add(1)
+			go func(item *News) {
+				defer wg.Done()
+				originalLink, err := g.getOriginalLink(item.Link)
+				if err != nil {
+					return
+				}
+				if utils.IsExcludedSource(originalLink, g.excludeWebsites) {
+					return
+				}
+				// set original link
+				item.Link = originalLink
+				g.cleanRSSItem(item)
+				newItems = append(newItems, item)
+			}(item)
+			count++
+		}
+		wg.Wait()
+	}
+	return newItems
 }
 
 func (g *GNews) getNews(path, query string) ([]*News, error) {
@@ -439,7 +451,7 @@ func (g *GNews) getNews(path, query string) ([]*News, error) {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 	req.Header.Set("User-Agent", utils.RandomUserAgent())
-	items := make([]*News, 0)
+	var allItems []*News
 	if g.proxy != nil {
 		proxyUrl, err := url.Parse(*g.proxy)
 		if err != nil {
@@ -451,21 +463,17 @@ func (g *GNews) getNews(path, query string) ([]*News, error) {
 		client := &http.Client{
 			Transport: transport,
 		}
-		items, err = g.getItems(client, req)
+		allItems, err = g.getAllItems(client, req)
 		if err != nil {
 			return nil, err
 		}
-		return items, nil
 	} else {
-		items, err = g.getItems(http.DefaultClient, req)
+		allItems, err = g.getAllItems(http.DefaultClient, req)
 		if err != nil {
 			return nil, err
 		}
 	}
-	// sort by published date
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].PublishedParsed.After(*items[j].PublishedParsed)
-	})
+	items := g.cleanItems(allItems)
 	return items, nil
 }
 
@@ -484,7 +492,6 @@ func (g *GNews) getOriginalLink(sourceLink string) (string, error) {
 	return originalLink, nil
 }
 
-func (g *GNews) cleanRSSItem(item *News) (*News, error) {
+func (g *GNews) cleanRSSItem(item *News) {
 	item.Description = utils.CleanDescription(item.Description)
-	return item, nil
 }
