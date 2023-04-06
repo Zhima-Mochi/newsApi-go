@@ -246,7 +246,14 @@ func (g *GNews) SetProxy(proxy string) *GNews {
 
 func (n *News) FetchContent() (string, error) {
 	var content string
-	url := n.Link
+	link := n.Link
+	if utils.IsGoogleNewsLink(link) {
+		var err error
+		link, err = utils.GetOriginalLink(link)
+		if err != nil {
+			return "", err
+		}
+	}
 	c := colly.NewCollector(colly.Async(true))
 	c.OnHTML("script", func(e *colly.HTMLElement) {
 		e.DOM.Remove()
@@ -256,49 +263,60 @@ func (n *News) FetchContent() (string, error) {
 			content += el.Text + "\n"
 		})
 	}
-
-	if strings.Contains(url, "yahoo.com") {
+	linkURL, err := url.Parse(link)
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(linkURL.Host, "yahoo.com") {
 		c.OnHTML(".caas-body", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "chinatimes.com") {
+	} else if strings.Contains(linkURL.Host, "chinatimes.com") {
 		c.OnHTML(".article-body", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "tvbs.com") {
+	} else if strings.Contains(linkURL.Host, "tvbs.com") {
 		c.OnHTML(".article_content", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "udn.com") {
+	} else if strings.Contains(linkURL.Host, "udn.com") {
 		c.OnHTML(".article-content__editor", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "appledaily.com") {
+	} else if strings.Contains(linkURL.Host, "appledaily.com") {
 		c.OnHTML(".ndArticle_margin", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "ettoday.net") {
+	} else if strings.Contains(linkURL.Host, "ettoday.net") {
 		c.OnHTML(".story", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "ltn.com") {
+	} else if linkURL.Host == "news.ltn.com.tw" {
 		c.OnHTML(".text", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "cnn.com") {
+	} else if strings.Contains(linkURL.Host, "cnn.com") {
 		c.OnHTML(".zn-body__paragraph", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "reuters.com") {
+	} else if strings.Contains(linkURL.Host, "reuters.com") {
 		c.OnHTML(".StandardArticleBody_body", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "cnbc.com") {
+	} else if strings.Contains(linkURL.Host, "cnbc.com") {
 		c.OnHTML(".group", func(e *colly.HTMLElement) {
 			helper(e)
 		})
-	} else if strings.Contains(url, "marketwatch.com") {
+	} else if strings.Contains(linkURL.Host, "marketwatch.com") {
 		c.OnHTML(".article__body", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if linkURL.Host == "www.cna.com.tw" {
+		c.OnHTML(".paragraph", func(e *colly.HTMLElement) {
+			helper(e)
+		})
+	} else if linkURL.Host == "www.setn.com" {
+		c.OnHTML(".article-content", func(e *colly.HTMLElement) {
 			helper(e)
 		})
 	} else {
@@ -307,7 +325,7 @@ func (n *News) FetchContent() (string, error) {
 		})
 	}
 
-	err := c.Visit(url)
+	err = c.Visit(link)
 	if err != nil {
 		return "", err
 	}
@@ -403,6 +421,7 @@ func (g *GNews) getAllItems(client *http.Client, req *http.Request) ([]*News, er
 		if feedItem.Image != nil {
 			news.ImageURL = feedItem.Image.URL
 		}
+		g.cleanRSSItem(news)
 		items = append(items, news)
 	}
 	// sort by published date
@@ -412,34 +431,15 @@ func (g *GNews) getAllItems(client *http.Client, req *http.Request) ([]*News, er
 	return items, nil
 }
 
-// clean items
-func (g *GNews) cleanItems(items []*News) []*News {
-	var wg sync.WaitGroup
-	newItems := make([]*News, 0, g.limit)
-	count := 0
-	for len(newItems) < g.limit && count < len(items) {
-		currentLen := len(newItems)
-		currentCount := count
-		for i := currentCount; i < len(items) && i < currentCount+g.limit-currentLen; i++ {
-			item := items[i]
-			wg.Add(1)
-			go func(item *News) {
-				defer wg.Done()
-				originalLink, err := g.getOriginalLink(item.Link)
-				if err != nil {
-					return
-				}
-				if utils.IsExcludedSource(originalLink, g.excludeWebsites) {
-					return
-				}
-				// set original link
-				item.Link = originalLink
-				g.cleanRSSItem(item)
-				newItems = append(newItems, item)
-			}(item)
-			count++
+// getFilteredItems filters the items
+func (g *GNews) GetFilteredItems(items []*News) []*News {
+	g.ConvertToOriginalLinks(items)
+	newItems := make([]*News, 0, len(items))
+	for _, item := range items {
+		if utils.IsExcludedSource(item.Link, g.excludeWebsites) {
+			continue
 		}
-		wg.Wait()
+		newItems = append(newItems, item)
 	}
 	return newItems
 }
@@ -473,23 +473,29 @@ func (g *GNews) getNews(path, query string) ([]*News, error) {
 			return nil, err
 		}
 	}
-	items := g.cleanItems(allItems)
+	items := allItems[:g.limit]
 	return items, nil
 }
 
-// get original news link from google news
-func (g *GNews) getOriginalLink(sourceLink string) (string, error) {
-	originalLink := ""
-	c := colly.NewCollector(colly.Async(true))
-	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		originalLink = e.Attr("href")
-	})
-	err := c.Visit(sourceLink)
-	if err != nil {
-		return "", err
+// ConvertToOriginalLinks converts the google news links to original links
+func (g *GNews) ConvertToOriginalLinks(items []*News) {
+	var wg sync.WaitGroup
+	for _, item := range items {
+		wg.Add(1)
+		go func(item *News) {
+			defer wg.Done()
+			// check if the link is a google news link
+			if utils.IsGoogleNewsLink(item.Link) {
+				originalLink, err := utils.GetOriginalLink(item.Link)
+				if err != nil {
+					return
+				}
+				// set original link
+				item.Link = originalLink
+			}
+		}(item)
 	}
-	c.Wait()
-	return originalLink, nil
+	wg.Wait()
 }
 
 func (g *GNews) cleanRSSItem(item *News) {

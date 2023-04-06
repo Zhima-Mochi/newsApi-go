@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gocolly/colly"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -208,6 +210,8 @@ var (
 var (
 	GOOGLE_NEWS_REGEX = `^http(s)?://(www.)?news.google.com*`
 
+	googleNewsRegexCompiled *regexp.Regexp
+
 	ErrEmptyQuery = fmt.Errorf("query cannot be empty")
 
 	ErrEmptyTopic = fmt.Errorf("topic cannot be empty")
@@ -222,6 +226,15 @@ var (
 const (
 	MaxSearchResults = 100
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+	r, err := regexp.Compile(GOOGLE_NEWS_REGEX)
+	if err != nil {
+		panic(err)
+	}
+	googleNewsRegexCompiled = r
+}
 
 // IsExcludedSource checks if the item's link is from an excluded website
 func IsExcludedSource(url string, excludeWebsites *[]string) bool {
@@ -269,4 +282,23 @@ func GetFeedItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error
 		return nil, fmt.Errorf("error parsing response body: %w", err)
 	}
 	return feed.Items, nil
+}
+
+func IsGoogleNewsLink(link string) bool {
+	return googleNewsRegexCompiled.MatchString(link)
+}
+
+// GetOriginalLink gets the original link
+func GetOriginalLink(sourceLink string) (string, error) {
+	originalLink := ""
+	c := colly.NewCollector(colly.Async(true))
+	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		originalLink = e.Attr("href")
+	})
+	err := c.Visit(sourceLink)
+	if err != nil {
+		return "", err
+	}
+	c.Wait()
+	return originalLink, nil
 }

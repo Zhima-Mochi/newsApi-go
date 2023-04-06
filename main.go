@@ -22,6 +22,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	google_news.ConvertToOriginalLinks(newss)
 	for _, news := range newss {
 		fmt.Println("=================================")
 		fmt.Println(news.Title)
