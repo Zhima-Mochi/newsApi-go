@@ -221,6 +221,8 @@ var (
 	ErrEmptyLocation = fmt.Errorf("location cannot be empty")
 
 	ErrFailedToGetNewsContent = fmt.Errorf("failed to get news content")
+
+	ErrEmptyLink = fmt.Errorf("link cannot be empty")
 )
 
 const (

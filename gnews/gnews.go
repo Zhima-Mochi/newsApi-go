@@ -339,6 +339,32 @@ func (n *News) FetchContent() (string, error) {
 	}
 }
 
+func (n *News) ConvertToOriginalLinks() error {
+	if n.Link == "" {
+		return utils.ErrEmptyLink
+	}
+	if utils.IsGoogleNewsLink(n.Link) {
+		link, err := utils.GetOriginalLink(n.Link)
+		if err != nil {
+			return err
+		}
+		n.Link = link
+	}
+	return nil
+}
+
+func (n *News) FillContent() error {
+	if n.Content != "" {
+		return nil
+	}
+	content, err := n.FetchContent()
+	if err != nil {
+		return err
+	}
+	n.Content = content
+	return nil
+}
+
 // GetTop gets the top news
 func (g *GNews) GetTopNews() ([]*News, error) {
 	return g.getNews("rss", "")
