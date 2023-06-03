@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Zhima-Mochi/gnewsApi-go/newsapi"
+	"github.com/Zhima-Mochi/newsApi-go/newsapi"
 )
 
 func main() {

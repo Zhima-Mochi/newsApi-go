@@ -1,4 +1,4 @@
-module github.com/Zhima-Mochi/gnewsApi-go
+module github.com/Zhima-Mochi/newsApi-go
 
 go 1.19
 
