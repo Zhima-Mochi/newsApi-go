@@ -1,4 +1,4 @@
-package gnews
+package newsapi
 
 import "time"
 

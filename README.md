@@ -1,83 +1,138 @@
-# GNews-go
+# Google News API
+[![Go Report Card](https://goreportcard.com/badge/github.com/Zhima-Mochi/newsApi-go)](https://goreportcard.com/report/github.com/Zhima-Mochi/newsApi-go)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/Zhima-Mochi/Gnews-go)](https://goreportcard.com/report/github.com/Zhima-Mochi/Gnews-go)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+The News API is a Go package that allows you to fetch news articles from Google News. It provides a simple and convenient way to retrieve news based on various criteria such as language, location, topic, and search query.
 
+## Installation
 
-# Introduction
-This package is inspired by the [ranahaani/GNews](https://github.com/ranahaani/GNews) which is written in Python, and is used to fetch the latest news from Google News.  
-The original data is from [Google News](https://news.google.com/rss), and we use `colly` to fetch the content of the news.
+To use the News API package in your Go project, you can install it using the `go get` command:
 
-# Installation
-```bash
-go get github.com/Zhima-Mochi/GNews-go 
+```
+go get github.com/Zhima-Mochi/newsApi-go/newsapi
 ```
 
-# Usage
+## Usage
+
+Import the News API package in your Go code:
 
 ```go
-package main
+import "github.com/Zhima-Mochi/newsApi-go/newsapi"
+```
 
-import (
-    "fmt"
-    "github.com/Zhima-Mochi/GNews-go"
-)
+### Creating a News API instance
 
-func main(){
-    gnews := gnews.NewGNews()
-    // return struct of News
-    newss, err := gnews.GetTopNews() 
+You can create a new instance of the News API by calling the `NewNewsApi` function. You can also provide optional configuration options to customize the behavior of the API.
+
+```go
+api := newsapi.NewNewsApi()
+```
+
+### Fetching top news
+
+To retrieve the top news articles, you can use the `GetTopNews` method:
+
+```go
+newsList, err := api.GetTopNews()
+if err != nil {
+    // handle error
+}
+
+// Process the news articles
+for _, news := range newsList {
+    // Access news properties such as title, description, link, etc.
+    fmt.Println(news.Title)
 }
 ```
-> struct of [News](gnews/models.go)
 
-## Set options
+### Fetching news by location
+
+You can retrieve news articles based on a specific location using the `GetLocationNews` method:
+
 ```go
-gnews.SetLocation(gnews.LocationJapan) // default is Taiwan
-gnews.SetLanguage(gnews.LanguageJapanese) // default is Traditional Chinese
-gnews.SetBefore(time.Now())
-gnews.SetAfter(time.Now().AddDate(0, 0, -7))
-gnews.SetMaxResults(10) // default is 100
+newsList, err := api.GetLocationNews(newsapi.LocationUnitedStates)
+if err != nil {
+    // handle error
+}
+
+// Process the news articles
+for _, news := range newsList {
+    // Access news properties
+    fmt.Println(news.Title)
+}
 ```
 
-## Search by keyword
+### Fetching news by topic
+
+To fetch news articles related to a specific topic, you can use the `GetTopicNews` method:
+
 ```go
-newss, err := gnews.SearchNews("keyword")
+newsList, err := api.GetTopicNews(newsapi.TopicTechnology)
+if err != nil {
+    // handle error
+}
+
+// Process the news articles
+for _, news := range newsList {
+    // Access news properties
+    fmt.Println(news.Title)
+}
 ```
-## Fetch content
-We do not have the content of the news in the original data, so we need to fetch it from the news website in the `Link` field.
+
+### Searching for news
+
+You can search for news articles using a specific query using the `SearchNews` method:
+
 ```go
-content, err := news.FetchContent()
+newsList, err := api.SearchNews("Go programming language")
+if err != nil {
+    // handle error
+}
+
+// Process the news articles
+for _, news := range newsList {
+    // Access news properties
+    fmt.Println(news.Title)
+}
 ```
 
-# Example
-```
-Title:
-德意志銀行股價重挫引發危機疑懼| 聯合新聞網 - 聯合新聞網
+### Customizing the API options
 
-Link:
-https://udn.com/news/story/6811/7055228
+The News API provides various options to customize the behavior of the API. You can set the query options using the `SetQueryOptions` method:
 
-Content:
-德意志銀行（Deutsche Bank）違約成本激增，重燃外界對銀行業危機擴大的疑懼，今天股價重挫。
+```go
+api.SetQueryOptions(
+    newsapi.WithLanguage("en"),
+    newsapi.WithLocation("US"),
+    newsapi.WithLimit(20),
+)
 
-法新社報導，德國最大銀行－德意志銀行今天在法蘭克福股市一度跌幅超過14%，收盤跌8.5%報8.54歐元。
-
-投資人擔憂銀行業體質狀況，德意志銀行預防債務違約的風險成本、即信用違約交換（CDS）大幅攀高。
-
-美國3家區域銀行倒閉，加上瑞士銀行集團（UBS）強制接手瑞士信貸銀行（Credit Suisse），本月稍早曾引發市場騷亂，現在德意志銀行又成為投資人關注的焦點。
-
-德意志銀行的競爭對手－德國商業銀行（Commerzbank）也表現欠佳，今天盤中一度重挫8.5%，收盤下跌5.45%報8.88歐元。
-
-德國銀行股走弱，領跌歐洲銀行股，法國興業銀行（Societe Generale）和法國巴黎銀行（BNP Paribas），以及英國數家銀行股價都挫跌。
-
-德國總理蕭茲（Olaf Scholz）針對德意志銀行再度提出保證，表示這家銀行早已「現代化和組織化其營運方式，這是一家相當賺錢的銀行，沒有理由去擔心」。
-
-蕭茲在布魯塞爾舉行的歐盟領袖峰會指出，歐洲銀行體系在嚴格規定和監管下「表現穩定」。
-
+// Fetch news based on the configured options
+newsList, err := api.GetTopNews()
+// ...
 ```
 
-# Todo
-- [ ] FetchContent() is not working properly for some news's website.
-- [ ] Implement FetchAllContent(newss []*News) with goroutine.
+### Fetching content of a news article
 
+```go
+newsContent, err := newsapi.FetchNewsContent(news.Link)
+if err != nil {
+    // handle error
+}
+
+// Access news content
+fmt.Println(newsContent)
+```
+
+
+
+## Example
+
+Please refer to the [example](example/main.go) for a complete example of using the News API package.
+
+## Todo
+- [ ] FetchNewsContent() is not working properly for some news's website.
+- [ ] Implement FetchAllNewsContent(newsList []*News) with goroutine.
+
+## License
+
+The News API package is open source and available under the [MIT License](https://github.com/Zhima-Mochi/newsApi-go/blob/main/LICENSE).

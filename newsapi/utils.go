@@ -1,4 +1,4 @@
-package utils
+package newsapi
 
 import (
 	"fmt"
@@ -52,8 +52,8 @@ var (
 		"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1468.0 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1467.0 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1464.0 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1500.55 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1500.55 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36",
@@ -211,18 +211,6 @@ var (
 	GOOGLE_NEWS_REGEX = `^http(s)?://(www.)?news.google.com*`
 
 	googleNewsRegexCompiled *regexp.Regexp
-
-	ErrEmptyQuery = fmt.Errorf("query cannot be empty")
-
-	ErrEmptyTopic = fmt.Errorf("topic cannot be empty")
-
-	ErrInvalidTopic = fmt.Errorf("invalid topic")
-
-	ErrEmptyLocation = fmt.Errorf("location cannot be empty")
-
-	ErrFailedToGetNewsContent = fmt.Errorf("failed to get news content")
-
-	ErrEmptyLink = fmt.Errorf("link cannot be empty")
 )
 
 const (
@@ -238,36 +226,16 @@ func init() {
 	googleNewsRegexCompiled = r
 }
 
-// IsExcludedSource checks if the item's link is from an excluded website
-func IsExcludedSource(url string, excludeWebsites *[]string) bool {
-	if excludeWebsites != nil {
-		for _, website := range *excludeWebsites {
-			r, _ := regexp.Compile(fmt.Sprintf(`^http(s)?://(www.)?%s.*`, strings.ToLower(website)))
-			if r.MatchString(url) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func CleanDescription(html string) string {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+// CleanHTML cleans html elements from content
+func CleanHTML(content string) string {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
 	if err != nil {
 		return ""
 	}
 	return doc.Text()
 }
 
-func CleanHTML(html string) string {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return ""
-	}
-	return doc.Text()
-}
-
-// get feed items
+// GetFeedItems gets feed items from a request
 func GetFeedItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error) {
 	resp, err := client.Do(req)
 	if err != nil {
@@ -286,7 +254,8 @@ func GetFeedItems(client *http.Client, req *http.Request) ([]*gofeed.Item, error
 	return feed.Items, nil
 }
 
-func IsGoogleNewsLink(link string) bool {
+// IsNewsApiLink checks if a link is a news api link
+func IsNewsApiLink(link string) bool {
 	return googleNewsRegexCompiled.MatchString(link)
 }
 
@@ -304,3 +273,37 @@ func GetOriginalLink(sourceLink string) (string, error) {
 	c.Wait()
 	return originalLink, nil
 }
+
+var (
+	newsHostToSelector = map[string]string{
+		"tw.news.yahoo.com":  ".caas-body",
+		"chinatimes.com":     ".article-body",
+		"tvbs.com":           ".article_content",
+		"udn.com":            ".article-content__editor",
+		"appledaily.com":     ".ndArticle_margin",
+		"ettoday.net":        ".story",
+		"news.ltn.com.tw":    ".text",
+		"www.cool3c.com":     ".article-content",
+		"www.ithome.com.tw":  ".paragraph",
+		"www.storm.mg":       ".article_content",
+		"www.chinatimes.com": ".article-body",
+		"www.cw.com.tw":      ".article-content",
+		"www.bnext.com.tw":   ".article-content",
+		"www.ettoday.net":    ".story",
+		"www.eyny.com":       ".article-content",
+		"www.ithome.com":     ".paragraph",
+		"www.mobile01.com":   ".single-post-content",
+		"www.peoplenews.tw":  ".article-content",
+		"cnn.com":            ".zn-body__paragraph",
+		"reuters.com":        ".StandardArticleBody_body",
+		"cnbc.com":           ".group",
+		"marketwatch.com":    ".article__body",
+		"www.cna.com.tw":     ".paragraph",
+		"www.setn.com":       ".article-content",
+		"3c.ltn.com.tw":      ".text",
+		"www.youtube.com":    "",
+		"www.kocpc.com.tw":   ".content-inner",
+		"star.ettoday.net":   ".story",
+		"www.mirrormedia.mg": ".article-content",
+	}
+)
