@@ -274,6 +274,32 @@ func GetOriginalLink(sourceLink string) (string, error) {
 	return originalLink, nil
 }
 
+func FormatDuration(duration time.Duration) string {
+	days := duration / (24 * time.Hour)
+	duration -= days * 24 * time.Hour
+
+	hours := duration / time.Hour
+	duration -= hours * time.Hour
+
+	minutes := duration / time.Minute
+
+	var formatted string
+
+	if days > 0 {
+		formatted += fmt.Sprintf("%dd ", days)
+	}
+
+	if hours > 0 {
+		formatted += fmt.Sprintf("%dh ", hours)
+	}
+
+	if minutes > 0 || formatted == "" {
+		formatted += fmt.Sprintf("%dm", minutes)
+	}
+
+	return formatted
+}
+
 var (
 	newsHostToSelector = map[string]string{
 		"tw.news.yahoo.com":  ".caas-body",
