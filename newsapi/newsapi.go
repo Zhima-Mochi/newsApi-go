@@ -58,9 +58,9 @@ func (n *newsApi) SetQueryOptions(options ...QueryOption) {
 	}
 }
 
-// GetNews gets the news by path and query
+// GetTopNews gets the news by path and query
 func (n *newsApi) GetTopNews() ([]*News, error) {
-	return n.GetNews("/rss", "")
+	return n.getNews("/rss", "")
 }
 
 // GetLocationNews gets the news by location
@@ -69,7 +69,7 @@ func (n *newsApi) GetLocationNews(location string) ([]*News, error) {
 		return nil, ErrEmptyLocation
 	}
 	path := "rss/headlines/section/geo/" + location
-	return n.GetNews(path, "")
+	return n.getNews(path, "")
 }
 
 // GetTopicNews gets the news by topic
@@ -82,7 +82,7 @@ func (n *newsApi) GetTopicNews(topic string) ([]*News, error) {
 		return nil, ErrInvalidTopic
 	}
 	path := "rss/headlines/section/topic/" + topic
-	return n.GetNews(path, "")
+	return n.getNews(path, "")
 }
 
 // SearchNews searches the news by query
@@ -91,11 +91,11 @@ func (n *newsApi) SearchNews(query string) ([]*News, error) {
 		return nil, ErrEmptyQuery
 	}
 	query = strings.ReplaceAll(query, " ", "%20")
-	return n.GetNews("rss/search", query)
+	return n.getNews("rss/search", query)
 }
 
-// ComposeURL composes the url by path and query
-func (n *newsApi) ComposeURL(path string, query string) url.URL {
+// composeURL composes the url by path and query
+func (n *newsApi) composeURL(path string, query string) url.URL {
 	searchURL := googleNewsURL
 	q := url.Values{}
 	q.Add("hl", n.language)
@@ -118,9 +118,9 @@ func (n *newsApi) ComposeURL(path string, query string) url.URL {
 	return searchURL
 }
 
-// GetNews gets the news by path and query
-func (n *newsApi) GetNews(path, query string) ([]*News, error) {
-	searchURL := n.ComposeURL(path, query)
+// getNews gets the news by path and query
+func (n *newsApi) getNews(path, query string) ([]*News, error) {
+	searchURL := n.composeURL(path, query)
 	req, err := http.NewRequest(http.MethodGet, searchURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -168,7 +168,10 @@ func (n *newsApi) GetNews(path, query string) ([]*News, error) {
 	sort.Slice(newsList, func(i, j int) bool {
 		return newsList[i].PublishedParsed.After(*newsList[j].PublishedParsed)
 	})
-	newsList = newsList[:n.limit]
+	// limit the number of news
+	if n.limit > 0 && n.limit < len(newsList) {
+		newsList = newsList[:n.limit]
+	}
 	return newsList, nil
 }
 

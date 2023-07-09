@@ -17,9 +17,10 @@ func main() {
 	startDate := endDate.Add(-time.Hour * 24)
 	queryOptions = append(queryOptions, newsapi.WithStartDate(startDate))
 	queryOptions = append(queryOptions, newsapi.WithEndDate(endDate))
+	// queryOptions = append(queryOptions, newsapi.WithPeriod(time.Hour))
 	handler.SetQueryOptions(queryOptions...)
 
-	newsList, err := handler.GetTopNews()
+	newsList, err := handler.SearchNews("thread instagram")
 	if err != nil {
 		fmt.Println(err)
 		return
