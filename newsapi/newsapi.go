@@ -105,7 +105,7 @@ func (n *newsApi) ComposeURL(path string, query string) url.URL {
 	if query != "" {
 		q.Set("q", query)
 		if n.period != nil {
-			q.Set("q", q.Get("q")+"+when:"+n.period.String())
+			q.Set("q", q.Get("q")+"+when:"+FormatDuration(*n.period))
 		}
 		if n.endDate != nil {
 			q.Set("q", q.Get("q")+"+before:"+n.endDate.Format("2006-01-02"))
