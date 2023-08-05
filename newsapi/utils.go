@@ -301,7 +301,7 @@ func FormatDuration(duration time.Duration) string {
 }
 
 var (
-	newsHostToSelector = map[string]string{
+	newsHostToContentSelector = map[string]string{
 		"tw.news.yahoo.com":  ".caas-body",
 		"chinatimes.com":     ".article-body",
 		"tvbs.com":           ".article_content",

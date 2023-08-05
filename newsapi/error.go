@@ -11,7 +11,9 @@ var (
 
 	ErrEmptyLocation = errors.New("location cannot be empty")
 
-	ErrFailedToGetNewsContent = errors.New("failed to get news content")
-
 	ErrEmptyLink = errors.New("link cannot be empty")
+
+	ErrNoSourceLink = errors.New("no source link")
+
+	ErrFailedToGetNewsContent = errors.New("failed to get news content")
 )

@@ -2,7 +2,8 @@ package newsapi
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -132,7 +133,7 @@ func (n *newsApi) getNews(path, query string) ([]*News, error) {
 		return nil, fmt.Errorf("error getting response: %w", err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
@@ -146,22 +147,7 @@ func (n *newsApi) getNews(path, query string) ([]*News, error) {
 	newsList := make([]*News, 0, len(feed.Items))
 
 	for _, item := range feed.Items {
-		news := &News{
-			Title:           item.Title,
-			Description:     item.Description,
-			Link:            item.Link,
-			Links:           item.Links,
-			Published:       item.Published,
-			PublishedParsed: item.PublishedParsed,
-			Updated:         item.Updated,
-			UpdatedParsed:   item.UpdatedParsed,
-			GUID:            item.GUID,
-			Categories:      item.Categories,
-		}
-		if item.Image != nil {
-			news.ImageURL = item.Image.URL
-		}
-		news.Description = CleanHTML(news.Description)
+		news := NewNews(item)
 		newsList = append(newsList, news)
 	}
 	// sort by published date
@@ -175,28 +161,39 @@ func (n *newsApi) getNews(path, query string) ([]*News, error) {
 	return newsList, nil
 }
 
-// ToSourceLinks converts the google news links to original links
-func ToSourceLinks(newsList []*News) {
+// FetchSourceLinks fetches the source links by the google news links
+func FetchSourceLinks(newsList []*News) {
 	var wg sync.WaitGroup
 	for _, news := range newsList {
 		wg.Add(1)
 		go func(news *News) {
 			defer wg.Done()
-			// check if the link is a google news link
-			if IsNewsApiLink(news.Link) {
-				originalLink, err := GetOriginalLink(news.Link)
-				if err != nil {
-					return
-				}
-				// set original link
-				news.Link = originalLink
+			err := news.fetchSourceLink()
+			if err != nil {
+				log.Println(fmt.Printf("error fetching source link: %s", err))
 			}
 		}(news)
 	}
 	wg.Wait()
 }
 
-// FetchNewsContent fetches the content of the news
+// FetchSourceContents fetches the source contents by the source links
+func FetchSourceContents(newsList []*News) {
+	var wg sync.WaitGroup
+	for _, news := range newsList {
+		wg.Add(1)
+		go func(news *News) {
+			defer wg.Done()
+			err := news.fetchSourceContent()
+			if err != nil {
+				log.Println(fmt.Printf("error fetching source content: %s", err))
+			}
+		}(news)
+	}
+	wg.Wait()
+}
+
+// Deprecated: use FetchSourceContents instead
 func FetchNewsContent(link string) (string, error) {
 	var content string
 	if IsNewsApiLink(link) {
@@ -220,13 +217,10 @@ func FetchNewsContent(link string) (string, error) {
 		return "", err
 	}
 
-	for host, selector := range newsHostToSelector {
-		if strings.Compare(linkURL.Host, host) == 0 {
-			c.OnHTML(selector, func(e *colly.HTMLElement) {
-				helper(e)
-			})
-			break
-		}
+	if selector, ok := newsHostToContentSelector[linkURL.Host]; ok {
+		c.OnHTML(selector, func(e *colly.HTMLElement) {
+			helper(e)
+		})
 	}
 
 	err = c.Visit(link)
@@ -240,4 +234,25 @@ func FetchNewsContent(link string) (string, error) {
 	} else {
 		return "", ErrFailedToGetNewsContent
 	}
+}
+
+// Deprecated: use FetchSourceLinks instead
+func ToSourceLinks(newsList []*News) {
+	var wg sync.WaitGroup
+	for _, news := range newsList {
+		wg.Add(1)
+		go func(news *News) {
+			defer wg.Done()
+			// check if the link is a google news link
+			if IsNewsApiLink(news.Link) {
+				originalLink, err := GetOriginalLink(news.Link)
+				if err != nil {
+					return
+				}
+				// set original link
+				news.Link = originalLink
+			}
+		}(news)
+	}
+	wg.Wait()
 }
