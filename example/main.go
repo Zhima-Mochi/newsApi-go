@@ -45,6 +45,7 @@ func main() {
 		fmt.Println(news.SourceDescription)
 		fmt.Println(news.SourceKeywords)
 		fmt.Println(news.SourceSiteName)
+		fmt.Println(news.SourceIconUrl)
 		fmt.Println(news.SourceContent)
 	}
 }

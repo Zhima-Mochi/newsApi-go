@@ -35,6 +35,7 @@ type News struct {
 	SourceDescription string
 	SourceKeywords    []string
 	SourceSiteName    string
+	SourceIconUrl     string
 	SourceContent     string
 }
 
@@ -145,6 +146,12 @@ func (n *News) fetchSourceContent() error {
 	c.OnHTML(`meta[property="og:site_name"]`, func(e *colly.HTMLElement) {
 		ogSiteName := e.Attr("content")
 		n.SourceSiteName = ogSiteName
+	})
+
+	// Set a callback for when a link tag with the rel "icon" is encountered
+	c.OnHTML(`link[rel="icon"]`, func(e *colly.HTMLElement) {
+		faviconURL := e.Attr("href")
+		n.SourceIconUrl = linkURL.Scheme + "://" + linkURL.Host + faviconURL
 	})
 
 	// Set a callback for when a meta tag with the property "og:keywords" is encountered
