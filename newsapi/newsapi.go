@@ -91,7 +91,7 @@ func (n *newsApi) SearchNews(query string) ([]*News, error) {
 	if query == "" {
 		return nil, ErrEmptyQuery
 	}
-	query = strings.ReplaceAll(query, " ", "%20")
+	// query = strings.ReplaceAll(query, " ", "%20")
 	return n.getNews("rss/search", query)
 }
 
